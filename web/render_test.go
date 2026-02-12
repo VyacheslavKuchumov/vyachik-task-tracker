@@ -1,4 +1,4 @@
-package tracker
+package web
 
 import (
 	"VyacheslavKuchumov/test-backend/types"

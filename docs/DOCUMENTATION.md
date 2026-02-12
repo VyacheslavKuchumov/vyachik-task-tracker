@@ -21,12 +21,13 @@ Main stack:
 ## Project Structure
 
 - `cmd/main.go`: API server entrypoint
-- `cmd/api/api.go`: route wiring
+- `cmd/server/server.go`: route wiring
 - `cmd/migrate/main.go`: migration runner
 - `cmd/migrate/migrations/`: SQL migrations
 - `service/user/`: register/login logic
 - `service/auth/`: JWT + password helpers
-- `service/tracker/`: goals/tasks business logic + HTMX handlers
+- `service/tracker/`: goals/tasks business logic + API handlers
+- `web/`: frontend pages, static assets, and HTMX handlers
 - `db/db.go`: PostgreSQL connection
 
 ## Prerequisites

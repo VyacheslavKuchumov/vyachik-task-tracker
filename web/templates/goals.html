@@ -1,0 +1,56 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Goals</title>
+  <script src="https://unpkg.com/htmx.org@1.9.12"></script>
+  <link rel="stylesheet" href="/static/styles.css">
+</head>
+<body>
+  <main class="wrap">
+    <div class="nav">
+      <a class="link" href="/goals">Goals</a>
+      <a class="link" href="/tasks">Tasks</a>
+      <form method="post" action="/auth/logout">
+        <button type="submit">Logout</button>
+      </form>
+    </div>
+
+    <section class="panel">
+      <h1>Goals</h1>
+      <p>List view with filters and toolbar operations. Create and edit one goal in the card panel.</p>
+    </section>
+
+    <div class="row">
+      <section class="panel">
+        <div class="toolbar">
+          <input name="q" form="goalsFilter" placeholder="Filter by goal title or description">
+          <select name="status" form="goalsFilter">
+            <option value="">Any task status</option>
+            <option value="todo">todo</option>
+            <option value="in_progress">in_progress</option>
+            <option value="done">done</option>
+          </select>
+          <button type="submit" form="goalsFilter">Filter</button>
+          <button hx-get="/htmx/goals/card" hx-target="#goalCard" hx-swap="innerHTML">New Goal</button>
+        </div>
+        <form id="goalsFilter" hx-get="/htmx/goals" hx-target="#goalsTable" hx-swap="innerHTML"></form>
+        <div id="goalsTable" hx-get="/htmx/goals" hx-trigger="load" hx-swap="innerHTML"></div>
+      </section>
+
+      <section class="panel">
+        <h2>Goal Card</h2>
+        <p>Create or edit one goal object.</p>
+        <div id="goalCard" hx-get="/htmx/goals/card" hx-trigger="load" hx-swap="innerHTML"></div>
+      </section>
+    </div>
+
+    <section class="panel">
+      <h2>Task Operations</h2>
+      <p>Use the dedicated tasks page for list/card task management.</p>
+      <a class="link" href="/tasks">Open Tasks Page</a>
+    </section>
+  </main>
+</body>
+</html>

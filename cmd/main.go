@@ -1,7 +1,7 @@
 package main
 
 import (
-	"VyacheslavKuchumov/test-backend/cmd/api"
+	"VyacheslavKuchumov/test-backend/cmd/server"
 	"VyacheslavKuchumov/test-backend/config"
 	"VyacheslavKuchumov/test-backend/db"
 	"log"
@@ -13,10 +13,8 @@ func main() {
 		log.Fatal(err)
 	}
 
-	server := api.NewAPIServer(config.Envs.Port, db)
-	err = server.Run()
-	if err != nil {
+	srv := server.NewServer(config.Envs.Port, db)
+	if err := srv.Run(); err != nil {
 		log.Fatal(err)
 	}
-
 }

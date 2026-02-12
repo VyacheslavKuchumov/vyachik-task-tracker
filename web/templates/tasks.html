@@ -1,0 +1,50 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Tasks</title>
+  <script src="https://unpkg.com/htmx.org@1.9.12"></script>
+  <link rel="stylesheet" href="/static/styles.css">
+</head>
+<body>
+  <main class="wrap">
+    <div class="nav">
+      <a class="link" href="/goals">Goals</a>
+      <a class="link" href="/tasks">Tasks</a>
+      <form method="post" action="/auth/logout">
+        <button type="submit">Logout</button>
+      </form>
+    </div>
+
+    <section class="panel">
+      <h1>Tasks</h1>
+      <p>List view with filters and toolbar operations. Related goal/user data is shown by name.</p>
+    </section>
+
+    <div class="row">
+      <section class="panel">
+        <div class="toolbar">
+          <input name="q" form="tasksFilter" placeholder="Filter by task, goal or user names">
+          <select name="status" form="tasksFilter">
+            <option value="">Any status</option>
+            <option value="todo">todo</option>
+            <option value="in_progress">in_progress</option>
+            <option value="done">done</option>
+          </select>
+          <button type="submit" form="tasksFilter">Filter</button>
+          <button hx-get="/htmx/tasks/card" hx-target="#taskCard" hx-swap="innerHTML">New Task</button>
+        </div>
+        <form id="tasksFilter" hx-get="/htmx/tasks" hx-target="#tasksTable" hx-swap="innerHTML"></form>
+        <div id="tasksTable" hx-get="/htmx/tasks" hx-trigger="load" hx-swap="innerHTML"></div>
+      </section>
+
+      <section class="panel">
+        <h2>Task Card</h2>
+        <p>Create or edit one task object.</p>
+        <div id="taskCard" hx-get="/htmx/tasks/card" hx-trigger="load" hx-swap="innerHTML"></div>
+      </section>
+    </div>
+  </main>
+</body>
+</html>
