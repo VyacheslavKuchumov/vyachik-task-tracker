@@ -1,1 +1,1 @@
-DROP TABLE IF EXISTS products;
+DROP TABLE IF EXISTS goals;

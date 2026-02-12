@@ -16,6 +16,15 @@ test:
 run: build
 	@./bin/server
 
+air:
+	@air
+
+docker-up:
+	@docker compose up -d
+
+docker-down:
+	@docker compose down
+
 migration:
 	@migrate create -ext sql -dir $(MIGRATION_DIR) -seq $(filter-out $@,$(MAKECMDGOALS))
 

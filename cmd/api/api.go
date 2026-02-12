@@ -2,7 +2,7 @@ package api
 
 import (
 	"VyacheslavKuchumov/test-backend/service/auth"
-	"VyacheslavKuchumov/test-backend/service/product"
+	"VyacheslavKuchumov/test-backend/service/tracker"
 	"VyacheslavKuchumov/test-backend/service/user"
 	"database/sql"
 	"log"
@@ -29,18 +29,34 @@ func (s *APIServer) Run() error {
 	r.Use(middleware.Logger)
 	userStore := user.NewStore(s.db)
 	userHandler := user.NewHandler(userStore)
-	productStore := product.NewStore(s.db)
-	productHandler := product.NewHandler(productStore)
+	trackerStore := tracker.NewStore(s.db)
+	trackerHandler := tracker.NewHandler(trackerStore)
+
+	r.Get("/", trackerHandler.HandleDashboard)
 
 	r.Route("/api/v1", func(r chi.Router) {
 
 		r.Post("/login", userHandler.HandleLogin)
 		r.Post("/register", userHandler.HandleRegister)
 
-		r.Route("/product", func(r chi.Router) {
-			r.Get("/", auth.WithJWTAuth(productHandler.HandleGetProducts, userStore))
-			r.Post("/", auth.WithJWTAuth(productHandler.HandleCreateProduct, userStore))
+		r.Route("/goals", func(r chi.Router) {
+			r.Get("/", auth.WithJWTAuth(trackerHandler.HandleGetGoals, userStore))
+			r.Post("/", auth.WithJWTAuth(trackerHandler.HandleCreateGoal, userStore))
+			r.Post("/{goalID}/tasks", auth.WithJWTAuth(trackerHandler.HandleCreateTask, userStore))
 		})
+
+		r.Route("/tasks", func(r chi.Router) {
+			r.Get("/assigned", auth.WithJWTAuth(trackerHandler.HandleGetAssignedTasks, userStore))
+			r.Put("/{taskID}/assign", auth.WithJWTAuth(trackerHandler.HandleAssignTask, userStore))
+		})
+	})
+
+	r.Route("/htmx", func(r chi.Router) {
+		r.Get("/goals", auth.WithJWTAuth(trackerHandler.HandleHTMXGoals, userStore))
+		r.Post("/goals/create", auth.WithJWTAuth(trackerHandler.HandleHTMXCreateGoal, userStore))
+		r.Get("/tasks/assigned", auth.WithJWTAuth(trackerHandler.HandleHTMXAssignedTasks, userStore))
+		r.Post("/tasks/create", auth.WithJWTAuth(trackerHandler.HandleHTMXCreateTask, userStore))
+		r.Post("/tasks/assign", auth.WithJWTAuth(trackerHandler.HandleHTMXAssignTask, userStore))
 	})
 
 	log.Println("Listening on", s.addr)

@@ -1,7 +1,6 @@
 package config
 
 import (
-	"fmt"
 	"log"
 	"os"
 	"path/filepath"
@@ -18,8 +17,10 @@ type Config struct {
 	Port                   string
 	DBUser                 string
 	DBPassword             string
-	DBAddress              string
+	DBHost                 string
+	DBPort                 string
 	DBName                 string
+	DBSSLMode              string
 	JWTExpirationInSeconds int64
 	JWTSecret              string
 }
@@ -31,10 +32,12 @@ func initConfig() Config {
 	return Config{
 		PublicHost:             getEnv("PUBLIC_HOST", "http://localhost"),
 		Port:                   getEnv("PORT", ":8000"),
-		DBUser:                 getEnv("DB_USER", "admin"),
-		DBPassword:             getEnv("DB_PASSWORD", "admin"),
-		DBAddress:              fmt.Sprintf("%s:%s", getEnv("DB_HOST", "127.0.0.1"), getEnv("DB_PORT", "3306")),
-		DBName:                 getEnv("DB_NAME", "dev-db"),
+		DBUser:                 getEnv("DB_USER", "postgres"),
+		DBPassword:             getEnv("DB_PASSWORD", "postgres"),
+		DBHost:                 getEnv("DB_HOST", "127.0.0.1"),
+		DBPort:                 getEnv("DB_PORT", "5433"),
+		DBName:                 getEnv("DB_NAME", "task_tracker"),
+		DBSSLMode:              getEnv("DB_SSLMODE", "disable"),
 		JWTExpirationInSeconds: getEnvAsInt("JWT_EXP", 3600*24*7),
 		JWTSecret:              getEnv("JWT_SECRET", "CHANGE_ME"),
 	}

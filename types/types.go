@@ -8,29 +8,51 @@ type UserStore interface {
 	CreateUser(User) error
 }
 
-type ProductStore interface {
-	CreateProduct(CreateProductPayload) error
-	GetProducts() ([]*Product, error)
+type GoalTaskStore interface {
+	CreateGoal(ownerID int, payload CreateGoalPayload) (*Goal, error)
+	GetGoalsByOwner(ownerID int) ([]*GoalWithTasks, error)
+	CreateTask(goalID, creatorID int, payload CreateTaskPayload) (*Task, error)
+	AssignTask(taskID, requesterID int, payload AssignTaskPayload) (*Task, error)
+	GetAssignedTasks(userID int) ([]*Task, error)
 }
 
-type Product struct {
-	ID          int     `json:"id"`
-	Name        string  `json:"name"`
-	Description string  `json:"description"`
-	Image       string  `json:"image"`
-	Price       float64 `json:"price"`
-	// note that this isn't the best way to handle quantity
-	// because it's not atomic (in ACID), but it's good enough for this example
-	Quantity  int       `json:"quantity"`
-	CreatedAt time.Time `json:"createdAt"`
+type Goal struct {
+	ID          int       `json:"id"`
+	Title       string    `json:"title"`
+	Description string    `json:"description"`
+	OwnerID     int       `json:"ownerId"`
+	CreatedAt   time.Time `json:"createdAt"`
 }
 
-type CreateProductPayload struct {
-	Name        string  `json:"name" validate:"required"`
-	Description string  `json:"description" validate:"required"`
-	Image       string  `json:"image" validate:"required"`
-	Price       float64 `json:"price" validate:"required,min=0"`
-	Quantity    int     `json:"quantity" validate:"required,min=0"`
+type GoalWithTasks struct {
+	Goal
+	Tasks []*Task `json:"tasks"`
+}
+
+type CreateGoalPayload struct {
+	Title       string `json:"title" validate:"required,min=3,max=255"`
+	Description string `json:"description" validate:"required,min=3,max=2000"`
+}
+
+type Task struct {
+	ID          int       `json:"id"`
+	GoalID      int       `json:"goalId"`
+	Title       string    `json:"title"`
+	Description string    `json:"description"`
+	Status      string    `json:"status"`
+	AssigneeID  *int      `json:"assigneeId,omitempty"`
+	CreatedBy   int       `json:"createdBy"`
+	CreatedAt   time.Time `json:"createdAt"`
+}
+
+type CreateTaskPayload struct {
+	Title       string `json:"title" validate:"required,min=3,max=255"`
+	Description string `json:"description" validate:"required,min=3,max=2000"`
+	AssigneeID  *int   `json:"assigneeId,omitempty"`
+}
+
+type AssignTaskPayload struct {
+	AssigneeID *int `json:"assigneeId"`
 }
 
 type User struct {

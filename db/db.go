@@ -1,17 +1,30 @@
 package db
 
 import (
+	"VyacheslavKuchumov/test-backend/config"
 	"database/sql"
 	"log"
+	"net/url"
 
-	"github.com/go-sql-driver/mysql"
+	_ "github.com/jackc/pgx/v5/stdlib"
 )
 
-func NewMySQLStorage(cfg mysql.Config) (*sql.DB, error) {
-	db, err := sql.Open("mysql", cfg.FormatDSN())
+func NewPostgresStorage(cfg config.Config) (*sql.DB, error) {
+	dsn := (&url.URL{
+		Scheme: "postgres",
+		User:   url.UserPassword(cfg.DBUser, cfg.DBPassword),
+		Host:   cfg.DBHost + ":" + cfg.DBPort,
+		Path:   cfg.DBName,
+	}).String() + "?sslmode=" + cfg.DBSSLMode
+
+	db, err := sql.Open("pgx", dsn)
 	if err != nil {
-		log.Fatal("Failed to open MySQL connection:", err)
+		log.Fatal("Failed to open PostgreSQL connection:", err)
 	}
 
-	return db, err
+	if err := db.Ping(); err != nil {
+		return nil, err
+	}
+
+	return db, nil
 }

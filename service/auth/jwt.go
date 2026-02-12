@@ -9,6 +9,7 @@ import (
 	"log"
 	"net/http"
 	"strconv"
+	"strings"
 	"time"
 
 	"github.com/golang-jwt/jwt/v5"
@@ -71,9 +72,13 @@ func WithJWTAuth(handlerFunc http.HandlerFunc, store types.UserStore) http.Handl
 
 func getTokenFromRequest(r *http.Request) string {
 	tokenAuth := r.Header.Get("Authorization")
+	tokenAuth = strings.TrimSpace(tokenAuth)
+	if tokenAuth == "" {
+		return ""
+	}
 
-	if tokenAuth != "" {
-		return tokenAuth
+	if strings.HasPrefix(strings.ToLower(tokenAuth), "bearer ") {
+		return strings.TrimSpace(tokenAuth[7:])
 	}
 
 	return tokenAuth

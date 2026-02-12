@@ -1,11 +1,3 @@
-CREATE TABLE IF NOT EXISTS `order_items` (
-  `id` INT UNSIGNED NOT NULL AUTO_INCREMENT,
-  `orderId` INT UNSIGNED NOT NULL,
-  `productId` INT UNSIGNED NOT NULL,
-  `quantity` INT NOT NULL,
-  `price` DECIMAL(10, 2) NOT NULL,
-  
-  PRIMARY KEY (`id`),
-  FOREIGN KEY (`orderId`) REFERENCES orders(`id`),
-  FOREIGN KEY (`productId`) REFERENCES products(`id`)
-);
+CREATE INDEX IF NOT EXISTS idx_goals_owner_id ON goals(owner_id);
+CREATE INDEX IF NOT EXISTS idx_tasks_goal_id ON tasks(goal_id);
+CREATE INDEX IF NOT EXISTS idx_tasks_assignee_id ON tasks(assignee_id);

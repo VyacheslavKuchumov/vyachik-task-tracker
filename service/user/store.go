@@ -15,48 +15,38 @@ func NewStore(db *sql.DB) *Store {
 }
 
 func (s *Store) GetUserByEmail(email string) (*types.User, error) {
-	rows, err := s.db.Query("SELECT * FROM users WHERE email = ?", email)
+	row := s.db.QueryRow(
+		"SELECT id, first_name, last_name, email, password, created_at FROM users WHERE email = $1",
+		email,
+	)
+	u, err := scanRowIntoUser(row)
+	if err == sql.ErrNoRows {
+		return nil, fmt.Errorf("user not found")
+	}
 	if err != nil {
 		return nil, err
 	}
-	u := new(types.User)
-	for rows.Next() {
-		u, err = scanRowsIntoUser(rows)
-		if err != nil {
-			return nil, err
-		}
-	}
-
-	if u.ID == 0 {
-		return nil, fmt.Errorf("User not found")
-	}
-
 	return u, nil
 }
 
 func (s *Store) GetUserByID(id int) (*types.User, error) {
-	rows, err := s.db.Query("SELECT * FROM users WHERE id = ?", id)
+	row := s.db.QueryRow(
+		"SELECT id, first_name, last_name, email, password, created_at FROM users WHERE id = $1",
+		id,
+	)
+	u, err := scanRowIntoUser(row)
+	if err == sql.ErrNoRows {
+		return nil, fmt.Errorf("user not found")
+	}
 	if err != nil {
 		return nil, err
 	}
-	u := new(types.User)
-	for rows.Next() {
-		u, err = scanRowsIntoUser(rows)
-		if err != nil {
-			return nil, err
-		}
-	}
-
-	if u.ID == 0 {
-		return nil, fmt.Errorf("User not found")
-	}
-
 	return u, nil
 }
 
 func (s *Store) CreateUser(user types.User) error {
 	_, err := s.db.Exec(
-		"INSERT INTO users (firstName, lastName, email, password) VALUES (?, ?, ?, ?)",
+		"INSERT INTO users (first_name, last_name, email, password) VALUES ($1, $2, $3, $4)",
 		user.FirstName, user.LastName, user.Email, user.Password,
 	)
 	if err != nil {
@@ -66,10 +56,14 @@ func (s *Store) CreateUser(user types.User) error {
 	return nil
 }
 
-func scanRowsIntoUser(rows *sql.Rows) (*types.User, error) {
+type rowScanner interface {
+	Scan(dest ...any) error
+}
+
+func scanRowIntoUser(row rowScanner) (*types.User, error) {
 	user := new(types.User)
 
-	err := rows.Scan(
+	err := row.Scan(
 		&user.ID,
 		&user.FirstName,
 		&user.LastName,

@@ -6,34 +6,25 @@ import (
 	"log"
 	"os"
 
-	mysqlConfig "github.com/go-sql-driver/mysql"
 	"github.com/golang-migrate/migrate/v4"
-	"github.com/golang-migrate/migrate/v4/database/mysql"
+	"github.com/golang-migrate/migrate/v4/database/postgres"
 	_ "github.com/golang-migrate/migrate/v4/source/file"
 )
 
 func main() {
-	db, err := db.NewMySQLStorage(mysqlConfig.Config{
-		User:                 config.Envs.DBUser,
-		Passwd:               config.Envs.DBPassword,
-		Addr:                 config.Envs.DBAddress,
-		DBName:               config.Envs.DBName,
-		Net:                  "tcp",
-		AllowNativePasswords: true,
-		ParseTime:            true,
-	})
+	db, err := db.NewPostgresStorage(config.Envs)
 	if err != nil {
 		log.Fatal(err)
 	}
 
-	driver, err := mysql.WithInstance(db, &mysql.Config{})
+	driver, err := postgres.WithInstance(db, &postgres.Config{})
 	if err != nil {
 		log.Fatal(err)
 	}
 
 	m, err := migrate.NewWithDatabaseInstance(
 		"file://cmd/migrate/migrations",
-		"mysql",
+		"postgres",
 		driver,
 	)
 	if err != nil {
