@@ -7,6 +7,7 @@ import (
 	"VyacheslavKuchumov/test-backend/utils"
 	"fmt"
 	"net/http"
+	"net/url"
 
 	"github.com/go-playground/validator/v10"
 )
@@ -26,27 +27,13 @@ func (h *Handler) HandleLogin(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	err := utils.Validate.Struct(payload)
-
+	token, err := h.createSessionToken(payload)
 	if err != nil {
-		errors := err.(validator.ValidationErrors)
-		utils.WriteError(w, http.StatusBadRequest, fmt.Errorf("Invalid payload %v", errors))
+		utils.WriteError(w, http.StatusBadRequest, err)
 		return
 	}
 
-	u, err := h.store.GetUserByEmail(payload.Email)
-	if err != nil {
-		utils.WriteError(w, http.StatusBadRequest, fmt.Errorf("User not found, invalid email or password"))
-		return
-	}
-
-	if !auth.ComparePasswords(u.Password, payload.Password) {
-		utils.WriteError(w, http.StatusBadRequest, fmt.Errorf("User not found, invalid email or password"))
-		return
-	}
-	secret := []byte(config.Envs.JWTSecret)
-	token, err := auth.CreateJWT(secret, u.ID)
-
+	auth.SetAuthCookie(w, token)
 	utils.WriteJSON(w, http.StatusOK, map[string]string{"token": token})
 }
 
@@ -57,24 +44,73 @@ func (h *Handler) HandleRegister(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	err := utils.Validate.Struct(payload)
-
+	err := h.registerUser(payload)
 	if err != nil {
-		errors := err.(validator.ValidationErrors)
-		utils.WriteError(w, http.StatusBadRequest, fmt.Errorf("Invalid payload %v", errors))
+		utils.WriteError(w, http.StatusBadRequest, err)
 		return
 	}
 
-	_, err = h.store.GetUserByEmail(payload.Email)
-	if err == nil {
-		utils.WriteError(w, http.StatusBadRequest, fmt.Errorf("User with email %s already exists", payload.Email))
+	utils.WriteJSON(w, http.StatusCreated, nil)
+}
+
+func (h *Handler) HandleWebLogin(w http.ResponseWriter, r *http.Request) {
+	if err := r.ParseForm(); err != nil {
+		http.Redirect(w, r, "/login?error="+url.QueryEscape("invalid form payload"), http.StatusSeeOther)
 		return
+	}
+
+	token, err := h.createSessionToken(types.LoginUserPayload{
+		Email:    r.FormValue("email"),
+		Password: r.FormValue("password"),
+	})
+	if err != nil {
+		http.Redirect(w, r, "/login?error="+url.QueryEscape(err.Error()), http.StatusSeeOther)
+		return
+	}
+
+	auth.SetAuthCookie(w, token)
+	http.Redirect(w, r, "/goals", http.StatusSeeOther)
+}
+
+func (h *Handler) HandleWebRegister(w http.ResponseWriter, r *http.Request) {
+	if err := r.ParseForm(); err != nil {
+		http.Redirect(w, r, "/register?error="+url.QueryEscape("invalid form payload"), http.StatusSeeOther)
+		return
+	}
+
+	err := h.registerUser(types.RegisterUserPayload{
+		FirstName: r.FormValue("firstName"),
+		LastName:  r.FormValue("lastName"),
+		Email:     r.FormValue("email"),
+		Password:  r.FormValue("password"),
+	})
+	if err != nil {
+		http.Redirect(w, r, "/register?error="+url.QueryEscape(err.Error()), http.StatusSeeOther)
+		return
+	}
+
+	http.Redirect(w, r, "/login?ok="+url.QueryEscape("registration successful"), http.StatusSeeOther)
+}
+
+func (h *Handler) HandleLogout(w http.ResponseWriter, r *http.Request) {
+	auth.ClearAuthCookie(w)
+	http.Redirect(w, r, "/login", http.StatusSeeOther)
+}
+
+func (h *Handler) registerUser(payload types.RegisterUserPayload) error {
+	if err := utils.Validate.Struct(payload); err != nil {
+		errors := err.(validator.ValidationErrors)
+		return fmt.Errorf("Invalid payload %v", errors)
+	}
+
+	_, err := h.store.GetUserByEmail(payload.Email)
+	if err == nil {
+		return fmt.Errorf("User with email %s already exists", payload.Email)
 	}
 
 	hashedPassword, err := auth.HashPassword(payload.Password)
 	if err != nil {
-		utils.WriteError(w, http.StatusInternalServerError, err)
-		return
+		return err
 	}
 
 	err = h.store.CreateUser(types.User{
@@ -84,9 +120,31 @@ func (h *Handler) HandleRegister(w http.ResponseWriter, r *http.Request) {
 		Password:  hashedPassword,
 	})
 	if err != nil {
-		utils.WriteError(w, http.StatusInternalServerError, err)
-		return
+		return err
 	}
 
-	utils.WriteJSON(w, http.StatusCreated, nil)
+	return nil
+}
+
+func (h *Handler) createSessionToken(payload types.LoginUserPayload) (string, error) {
+	if err := utils.Validate.Struct(payload); err != nil {
+		errors := err.(validator.ValidationErrors)
+		return "", fmt.Errorf("Invalid payload %v", errors)
+	}
+
+	u, err := h.store.GetUserByEmail(payload.Email)
+	if err != nil {
+		return "", fmt.Errorf("User not found, invalid email or password")
+	}
+
+	if !auth.ComparePasswords(u.Password, payload.Password) {
+		return "", fmt.Errorf("User not found, invalid email or password")
+	}
+	secret := []byte(config.Envs.JWTSecret)
+	token, err := auth.CreateJWT(secret, u.ID)
+	if err != nil {
+		return "", err
+	}
+
+	return token, nil
 }

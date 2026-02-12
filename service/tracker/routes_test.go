@@ -124,6 +124,16 @@ func (m *mockGoalTaskStore) GetGoalsByOwner(ownerID int) ([]*types.GoalWithTasks
 	}, nil
 }
 
+func (m *mockGoalTaskStore) UpdateGoal(goalID, ownerID int, payload types.CreateGoalPayload) (*types.Goal, error) {
+	return &types.Goal{
+		ID:          goalID,
+		Title:       payload.Title,
+		Description: payload.Description,
+		OwnerID:     ownerID,
+		CreatedAt:   time.Now(),
+	}, nil
+}
+
 func (m *mockGoalTaskStore) CreateTask(goalID, creatorID int, payload types.CreateTaskPayload) (*types.Task, error) {
 	return &types.Task{
 		ID:          1,
@@ -133,6 +143,19 @@ func (m *mockGoalTaskStore) CreateTask(goalID, creatorID int, payload types.Crea
 		Status:      "todo",
 		AssigneeID:  payload.AssigneeID,
 		CreatedBy:   creatorID,
+		CreatedAt:   time.Now(),
+	}, nil
+}
+
+func (m *mockGoalTaskStore) UpdateTask(taskID, requesterID int, payload types.UpdateTaskPayload) (*types.Task, error) {
+	return &types.Task{
+		ID:          taskID,
+		GoalID:      payload.GoalID,
+		Title:       payload.Title,
+		Description: payload.Description,
+		Status:      payload.Status,
+		AssigneeID:  payload.AssigneeID,
+		CreatedBy:   requesterID,
 		CreatedAt:   time.Now(),
 	}, nil
 }
@@ -164,6 +187,13 @@ func (m *mockGoalTaskStore) GetAssignedTasks(userID int) ([]*types.Task, error) 
 			CreatedBy:  2,
 			CreatedAt:  time.Now(),
 		},
+	}, nil
+}
+
+func (m *mockGoalTaskStore) ListUsers() ([]*types.UserLookup, error) {
+	return []*types.UserLookup{
+		{ID: 1, Name: "Alice Doe"},
+		{ID: 2, Name: "Bob Doe"},
 	}, nil
 }
 

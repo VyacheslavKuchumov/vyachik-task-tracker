@@ -17,5 +17,28 @@ services:
       timeout: 5s
       retries: 10
 
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: task_tracker_app
+    restart: unless-stopped
+    depends_on:
+      postgres:
+        condition: service_healthy
+    environment:
+      PUBLIC_HOST: http://localhost
+      PORT: :8000
+      DB_USER: postgres
+      DB_PASSWORD: postgres
+      DB_HOST: postgres
+      DB_PORT: 5432
+      DB_NAME: task_tracker
+      DB_SSLMODE: disable
+      JWT_EXP: 604800
+      JWT_SECRET: CHANGE_ME
+    ports:
+      - "8000:8000"
+
 volumes:
   postgres_data:

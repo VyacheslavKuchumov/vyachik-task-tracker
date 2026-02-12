@@ -32,7 +32,14 @@ func (s *APIServer) Run() error {
 	trackerStore := tracker.NewStore(s.db)
 	trackerHandler := tracker.NewHandler(trackerStore)
 
-	r.Get("/", trackerHandler.HandleDashboard)
+	r.Get("/", trackerHandler.HandleHome)
+	r.Get("/login", trackerHandler.HandleLoginPage)
+	r.Get("/register", trackerHandler.HandleRegisterPage)
+	r.Get("/goals", auth.WithJWTPageAuth(trackerHandler.HandleGoalsPage, userStore))
+	r.Get("/tasks", auth.WithJWTPageAuth(trackerHandler.HandleTasksPage, userStore))
+	r.Post("/auth/login", userHandler.HandleWebLogin)
+	r.Post("/auth/register", userHandler.HandleWebRegister)
+	r.Post("/auth/logout", userHandler.HandleLogout)
 
 	r.Route("/api/v1", func(r chi.Router) {
 
@@ -53,10 +60,13 @@ func (s *APIServer) Run() error {
 
 	r.Route("/htmx", func(r chi.Router) {
 		r.Get("/goals", auth.WithJWTAuth(trackerHandler.HandleHTMXGoals, userStore))
-		r.Post("/goals/create", auth.WithJWTAuth(trackerHandler.HandleHTMXCreateGoal, userStore))
-		r.Get("/tasks/assigned", auth.WithJWTAuth(trackerHandler.HandleHTMXAssignedTasks, userStore))
-		r.Post("/tasks/create", auth.WithJWTAuth(trackerHandler.HandleHTMXCreateTask, userStore))
-		r.Post("/tasks/assign", auth.WithJWTAuth(trackerHandler.HandleHTMXAssignTask, userStore))
+		r.Get("/goals/card", auth.WithJWTAuth(trackerHandler.HandleHTMXGoalCard, userStore))
+		r.Get("/goals/card/{goalID}", auth.WithJWTAuth(trackerHandler.HandleHTMXGoalCard, userStore))
+		r.Post("/goals/save", auth.WithJWTAuth(trackerHandler.HandleHTMXGoalSave, userStore))
+		r.Get("/tasks", auth.WithJWTAuth(trackerHandler.HandleHTMXTasks, userStore))
+		r.Get("/tasks/card", auth.WithJWTAuth(trackerHandler.HandleHTMXTaskCard, userStore))
+		r.Get("/tasks/card/{taskID}", auth.WithJWTAuth(trackerHandler.HandleHTMXTaskCard, userStore))
+		r.Post("/tasks/save", auth.WithJWTAuth(trackerHandler.HandleHTMXTaskSave, userStore))
 	})
 
 	log.Println("Listening on", s.addr)

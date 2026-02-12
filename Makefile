@@ -20,7 +20,10 @@ air:
 	@air
 
 docker-up:
-	@docker compose up -d
+	@docker compose up -d --build
+
+docker-db-up:
+	@docker compose up -d postgres
 
 docker-down:
 	@docker compose down

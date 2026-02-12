@@ -152,11 +152,6 @@ func (h *Handler) HandleGetAssignedTasks(w http.ResponseWriter, r *http.Request)
 	utils.WriteJSON(w, http.StatusOK, tasks)
 }
 
-func (h *Handler) HandleDashboard(w http.ResponseWriter, _ *http.Request) {
-	w.Header().Set("Content-Type", "text/html; charset=utf-8")
-	_, _ = w.Write([]byte(dashboardPage))
-}
-
 func (h *Handler) HandleHTMXGoals(w http.ResponseWriter, r *http.Request) {
 	ownerID := auth.GetUserIDFromContext(r.Context())
 	goals, err := h.store.GetGoalsByOwner(ownerID)
@@ -165,23 +160,96 @@ func (h *Handler) HandleHTMXGoals(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	query := strings.TrimSpace(r.URL.Query().Get("q"))
+	status := strings.TrimSpace(r.URL.Query().Get("status"))
+	goals = filterGoals(goals, query, status)
+
 	w.Header().Set("Content-Type", "text/html; charset=utf-8")
-	_, _ = w.Write([]byte(renderGoals(goals)))
+	_, _ = w.Write([]byte(renderGoalsTable(goals)))
 }
 
-func (h *Handler) HandleHTMXAssignedTasks(w http.ResponseWriter, r *http.Request) {
-	userID := auth.GetUserIDFromContext(r.Context())
-	tasks, err := h.store.GetAssignedTasks(userID)
+func (h *Handler) HandleHTMXTasks(w http.ResponseWriter, r *http.Request) {
+	ownerID := auth.GetUserIDFromContext(r.Context())
+	goals, err := h.store.GetGoalsByOwner(ownerID)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
 
+	tasks := flattenOwnedTasks(goals)
+	query := strings.TrimSpace(r.URL.Query().Get("q"))
+	status := strings.TrimSpace(r.URL.Query().Get("status"))
+	tasks = filterTasks(tasks, query, status)
+
 	w.Header().Set("Content-Type", "text/html; charset=utf-8")
-	_, _ = w.Write([]byte(renderAssignedTasks(tasks)))
+	_, _ = w.Write([]byte(renderTasksTable(tasks)))
 }
 
-func (h *Handler) HandleHTMXCreateGoal(w http.ResponseWriter, r *http.Request) {
+func (h *Handler) HandleHTMXGoalCard(w http.ResponseWriter, r *http.Request) {
+	ownerID := auth.GetUserIDFromContext(r.Context())
+	goals, err := h.store.GetGoalsByOwner(ownerID)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+
+	var goal *types.Goal
+	goalIDRaw := strings.TrimSpace(chi.URLParam(r, "goalID"))
+	if goalIDRaw != "" {
+		goalID, err := strconv.Atoi(goalIDRaw)
+		if err != nil || goalID <= 0 {
+			http.Error(w, "invalid goal id", http.StatusBadRequest)
+			return
+		}
+		goal = findGoal(goals, goalID)
+		if goal == nil {
+			http.Error(w, "goal not found", http.StatusNotFound)
+			return
+		}
+	}
+
+	w.Header().Set("Content-Type", "text/html; charset=utf-8")
+	_, _ = w.Write([]byte(renderGoalCard(goal)))
+}
+
+func (h *Handler) HandleHTMXTaskCard(w http.ResponseWriter, r *http.Request) {
+	ownerID := auth.GetUserIDFromContext(r.Context())
+	goals, err := h.store.GetGoalsByOwner(ownerID)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+	users, err := h.store.ListUsers()
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+
+	task := &types.Task{Status: "todo"}
+	if len(goals) > 0 {
+		task.GoalID = goals[0].ID
+	}
+
+	taskIDRaw := strings.TrimSpace(chi.URLParam(r, "taskID"))
+	if taskIDRaw != "" {
+		taskID, err := strconv.Atoi(taskIDRaw)
+		if err != nil || taskID <= 0 {
+			http.Error(w, "invalid task id", http.StatusBadRequest)
+			return
+		}
+		found := findTask(flattenOwnedTasks(goals), taskID)
+		if found == nil {
+			http.Error(w, "task not found", http.StatusNotFound)
+			return
+		}
+		task = found
+	}
+
+	w.Header().Set("Content-Type", "text/html; charset=utf-8")
+	_, _ = w.Write([]byte(renderTaskCard(task, goals, users)))
+}
+
+func (h *Handler) HandleHTMXGoalSave(w http.ResponseWriter, r *http.Request) {
 	ownerID := auth.GetUserIDFromContext(r.Context())
 	if err := r.ParseForm(); err != nil {
 		http.Error(w, "failed to parse form", http.StatusBadRequest)
@@ -189,33 +257,49 @@ func (h *Handler) HandleHTMXCreateGoal(w http.ResponseWriter, r *http.Request) {
 	}
 
 	payload := types.CreateGoalPayload{
-		Title:       r.FormValue("title"),
-		Description: r.FormValue("description"),
+		Title:       strings.TrimSpace(r.FormValue("title")),
+		Description: strings.TrimSpace(r.FormValue("description")),
 	}
-
 	if err := utils.Validate.Struct(payload); err != nil {
 		http.Error(w, "invalid goal payload", http.StatusBadRequest)
 		return
 	}
 
-	if _, err := h.store.CreateGoal(ownerID, payload); err != nil {
-		http.Error(w, err.Error(), http.StatusInternalServerError)
-		return
+	goalIDRaw := strings.TrimSpace(r.FormValue("goalId"))
+	if goalIDRaw == "" {
+		if _, err := h.store.CreateGoal(ownerID, payload); err != nil {
+			http.Error(w, err.Error(), http.StatusInternalServerError)
+			return
+		}
+	} else {
+		goalID, err := strconv.Atoi(goalIDRaw)
+		if err != nil || goalID <= 0 {
+			http.Error(w, "invalid goal id", http.StatusBadRequest)
+			return
+		}
+		if _, err := h.store.UpdateGoal(goalID, ownerID, payload); err != nil {
+			status := http.StatusInternalServerError
+			if err == ErrForbidden {
+				status = http.StatusForbidden
+			}
+			http.Error(w, err.Error(), status)
+			return
+		}
 	}
 
 	h.HandleHTMXGoals(w, r)
 }
 
-func (h *Handler) HandleHTMXCreateTask(w http.ResponseWriter, r *http.Request) {
+func (h *Handler) HandleHTMXTaskSave(w http.ResponseWriter, r *http.Request) {
 	ownerID := auth.GetUserIDFromContext(r.Context())
 	if err := r.ParseForm(); err != nil {
 		http.Error(w, "failed to parse form", http.StatusBadRequest)
 		return
 	}
 
-	goalID, err := strconv.Atoi(r.FormValue("goalId"))
+	goalID, err := strconv.Atoi(strings.TrimSpace(r.FormValue("goalId")))
 	if err != nil || goalID <= 0 {
-		http.Error(w, "invalid goal id", http.StatusBadRequest)
+		http.Error(w, "invalid goal", http.StatusBadRequest)
 		return
 	}
 
@@ -223,249 +307,337 @@ func (h *Handler) HandleHTMXCreateTask(w http.ResponseWriter, r *http.Request) {
 	if raw := strings.TrimSpace(r.FormValue("assigneeId")); raw != "" {
 		value, err := strconv.Atoi(raw)
 		if err != nil || value <= 0 {
-			http.Error(w, "invalid assignee id", http.StatusBadRequest)
+			http.Error(w, "invalid assignee", http.StatusBadRequest)
 			return
 		}
 		assigneeID = &value
 	}
 
-	payload := types.CreateTaskPayload{
-		Title:       r.FormValue("title"),
-		Description: r.FormValue("description"),
-		AssigneeID:  assigneeID,
-	}
-	if err := utils.Validate.Struct(payload); err != nil {
-		http.Error(w, "invalid task payload", http.StatusBadRequest)
-		return
-	}
-
-	if _, err := h.store.CreateTask(goalID, ownerID, payload); err != nil {
-		status := http.StatusInternalServerError
-		if err == ErrForbidden {
-			status = http.StatusForbidden
+	taskIDRaw := strings.TrimSpace(r.FormValue("taskId"))
+	if taskIDRaw == "" {
+		payload := types.CreateTaskPayload{
+			Title:       strings.TrimSpace(r.FormValue("title")),
+			Description: strings.TrimSpace(r.FormValue("description")),
+			AssigneeID:  assigneeID,
 		}
-		http.Error(w, err.Error(), status)
-		return
-	}
-
-	h.HandleHTMXGoals(w, r)
-}
-
-func (h *Handler) HandleHTMXAssignTask(w http.ResponseWriter, r *http.Request) {
-	userID := auth.GetUserIDFromContext(r.Context())
-	if err := r.ParseForm(); err != nil {
-		http.Error(w, "failed to parse form", http.StatusBadRequest)
-		return
-	}
-
-	taskID, err := strconv.Atoi(r.FormValue("taskId"))
-	if err != nil || taskID <= 0 {
-		http.Error(w, "invalid task id", http.StatusBadRequest)
-		return
-	}
-
-	var assigneeID *int
-	if raw := strings.TrimSpace(r.FormValue("assigneeId")); raw != "" {
-		value, err := strconv.Atoi(raw)
-		if err != nil || value <= 0 {
-			http.Error(w, "invalid assignee id", http.StatusBadRequest)
+		if err := utils.Validate.Struct(payload); err != nil {
+			http.Error(w, "invalid task payload", http.StatusBadRequest)
 			return
 		}
-		assigneeID = &value
-	}
-
-	if _, err := h.store.AssignTask(taskID, userID, types.AssignTaskPayload{AssigneeID: assigneeID}); err != nil {
-		status := http.StatusInternalServerError
-		if err == ErrForbidden {
-			status = http.StatusForbidden
+		if _, err := h.store.CreateTask(goalID, ownerID, payload); err != nil {
+			status := http.StatusInternalServerError
+			if err == ErrForbidden {
+				status = http.StatusForbidden
+			}
+			http.Error(w, err.Error(), status)
+			return
 		}
-		http.Error(w, err.Error(), status)
-		return
+	} else {
+		taskID, err := strconv.Atoi(taskIDRaw)
+		if err != nil || taskID <= 0 {
+			http.Error(w, "invalid task id", http.StatusBadRequest)
+			return
+		}
+		payload := types.UpdateTaskPayload{
+			GoalID:      goalID,
+			Title:       strings.TrimSpace(r.FormValue("title")),
+			Description: strings.TrimSpace(r.FormValue("description")),
+			Status:      strings.TrimSpace(r.FormValue("status")),
+			AssigneeID:  assigneeID,
+		}
+		if err := utils.Validate.Struct(payload); err != nil {
+			http.Error(w, "invalid task payload", http.StatusBadRequest)
+			return
+		}
+		if _, err := h.store.UpdateTask(taskID, ownerID, payload); err != nil {
+			status := http.StatusInternalServerError
+			if err == ErrForbidden {
+				status = http.StatusForbidden
+			}
+			http.Error(w, err.Error(), status)
+			return
+		}
 	}
 
-	h.HandleHTMXGoals(w, r)
+	h.HandleHTMXTasks(w, r)
 }
 
-func renderGoals(goals []*types.GoalWithTasks) string {
+func renderGoalsTable(goals []*types.GoalWithTasks) string {
 	if len(goals) == 0 {
-		return `<div class="empty">No goals yet.</div>`
+		return `<div class="empty">No goals found for these filters.</div>`
 	}
 
 	var b strings.Builder
+	b.WriteString(`<table class="grid-table"><thead><tr><th>Goal</th><th>Owner</th><th>Tasks</th><th>Created</th><th>Operations</th></tr></thead><tbody>`)
 	for _, goal := range goals {
-		b.WriteString(`<article class="card">`)
-		b.WriteString(`<h3>`)
+		b.WriteString(`<tr><td><strong>`)
 		b.WriteString(html.EscapeString(goal.Title))
-		b.WriteString(`</h3><p>`)
+		b.WriteString(`</strong><div class="sub">`)
 		b.WriteString(html.EscapeString(goal.Description))
-		b.WriteString(`</p><small>Goal ID: `)
+		b.WriteString(`</div></td><td>`)
+		ownerName := goal.OwnerName
+		if ownerName == "" {
+			ownerName = "You"
+		}
+		b.WriteString(html.EscapeString(ownerName))
+		b.WriteString(`</td><td>`)
+		b.WriteString(strconv.Itoa(len(goal.Tasks)))
+		b.WriteString(`</td><td>`)
+		b.WriteString(goal.CreatedAt.Format("2006-01-02"))
+		b.WriteString(`</td><td><button hx-get="/htmx/goals/card/`)
 		b.WriteString(strconv.Itoa(goal.ID))
-		b.WriteString(`</small><div class="tasks">`)
-		if len(goal.Tasks) == 0 {
-			b.WriteString(`<div class="empty">No tasks yet.</div>`)
-		} else {
-			for _, task := range goal.Tasks {
-				b.WriteString(`<div class="task"><strong>`)
-				b.WriteString(html.EscapeString(task.Title))
-				b.WriteString(`</strong><p>`)
-				b.WriteString(html.EscapeString(task.Description))
-				b.WriteString(`</p><small>Task ID: `)
-				b.WriteString(strconv.Itoa(task.ID))
-				b.WriteString(` | Status: `)
-				b.WriteString(html.EscapeString(task.Status))
-				b.WriteString(` | Assignee: `)
-				if task.AssigneeID != nil {
-					b.WriteString(strconv.Itoa(*task.AssigneeID))
-				} else {
-					b.WriteString(`none`)
-				}
-				b.WriteString(`</small></div>`)
+		b.WriteString(`" hx-target="#goalCard" hx-swap="innerHTML">Edit</button></td></tr>`)
+	}
+	b.WriteString(`</tbody></table>`)
+	return b.String()
+}
+
+func renderTasksTable(tasks []*types.Task) string {
+	if len(tasks) == 0 {
+		return `<div class="empty">No tasks found for these filters.</div>`
+	}
+
+	var b strings.Builder
+	b.WriteString(`<table class="grid-table"><thead><tr><th>Task</th><th>Goal</th><th>Status</th><th>Assignee</th><th>Created By</th><th>Operations</th></tr></thead><tbody>`)
+	for _, task := range tasks {
+		assigneeName := task.AssigneeName
+		if assigneeName == "" {
+			assigneeName = "Unassigned"
+		}
+		creatorName := task.CreatedByName
+		if creatorName == "" {
+			creatorName = "Unknown"
+		}
+
+		b.WriteString(`<tr><td><strong>`)
+		b.WriteString(html.EscapeString(task.Title))
+		b.WriteString(`</strong><div class="sub">`)
+		b.WriteString(html.EscapeString(task.Description))
+		b.WriteString(`</div></td><td>`)
+		b.WriteString(html.EscapeString(task.GoalTitle))
+		b.WriteString(`</td><td>`)
+		b.WriteString(html.EscapeString(task.Status))
+		b.WriteString(`</td><td>`)
+		b.WriteString(html.EscapeString(assigneeName))
+		b.WriteString(`</td><td>`)
+		b.WriteString(html.EscapeString(creatorName))
+		b.WriteString(`</td><td><button hx-get="/htmx/tasks/card/`)
+		b.WriteString(strconv.Itoa(task.ID))
+		b.WriteString(`" hx-target="#taskCard" hx-swap="innerHTML">Edit</button></td></tr>`)
+	}
+	b.WriteString(`</tbody></table>`)
+	return b.String()
+}
+
+func renderGoalCard(goal *types.Goal) string {
+	isEdit := goal != nil
+	title := "Create Goal"
+	actionLabel := "Create"
+	goalIDValue := ""
+	goalTitle := ""
+	goalDescription := ""
+	if isEdit {
+		title = "Edit Goal"
+		actionLabel = "Update"
+		goalIDValue = strconv.Itoa(goal.ID)
+		goalTitle = goal.Title
+		goalDescription = goal.Description
+	}
+
+	var b strings.Builder
+	b.WriteString(`<div class="card-form"><h3>`)
+	b.WriteString(html.EscapeString(title))
+	b.WriteString(`</h3><form class="stack" hx-post="/htmx/goals/save" hx-target="#goalsTable" hx-swap="innerHTML">`)
+	b.WriteString(`<input type="hidden" name="goalId" value="`)
+	b.WriteString(html.EscapeString(goalIDValue))
+	b.WriteString(`">`)
+	b.WriteString(`<label>Title</label><input name="title" value="`)
+	b.WriteString(html.EscapeString(goalTitle))
+	b.WriteString(`" required>`)
+	b.WriteString(`<label>Description</label><textarea name="description" required>`)
+	b.WriteString(html.EscapeString(goalDescription))
+	b.WriteString(`</textarea><button type="submit">`)
+	b.WriteString(html.EscapeString(actionLabel))
+	b.WriteString(`</button></form></div>`)
+	return b.String()
+}
+
+func renderTaskCard(task *types.Task, goals []*types.GoalWithTasks, users []*types.UserLookup) string {
+	if len(goals) == 0 {
+		return `<div class="empty">Create at least one goal before creating tasks.</div>`
+	}
+
+	isEdit := task != nil && task.ID > 0
+	if task == nil {
+		task = &types.Task{Status: "todo", GoalID: goals[0].ID}
+	}
+	if task.Status == "" {
+		task.Status = "todo"
+	}
+
+	title := "Create Task"
+	actionLabel := "Create"
+	taskIDValue := ""
+	if isEdit {
+		title = "Edit Task"
+		actionLabel = "Update"
+		taskIDValue = strconv.Itoa(task.ID)
+	}
+
+	var b strings.Builder
+	b.WriteString(`<div class="card-form"><h3>`)
+	b.WriteString(html.EscapeString(title))
+	b.WriteString(`</h3><form class="stack" hx-post="/htmx/tasks/save" hx-target="#tasksTable" hx-swap="innerHTML">`)
+	b.WriteString(`<input type="hidden" name="taskId" value="`)
+	b.WriteString(html.EscapeString(taskIDValue))
+	b.WriteString(`">`)
+
+	b.WriteString(`<label>Goal</label><select name="goalId" required>`)
+	for _, goal := range goals {
+		selected := ""
+		if goal.ID == task.GoalID {
+			selected = ` selected`
+		}
+		b.WriteString(`<option value="`)
+		b.WriteString(strconv.Itoa(goal.ID))
+		b.WriteString(`"`)
+		b.WriteString(selected)
+		b.WriteString(`>`)
+		b.WriteString(html.EscapeString(goal.Title))
+		b.WriteString(`</option>`)
+	}
+	b.WriteString(`</select>`)
+
+	b.WriteString(`<label>Title</label><input name="title" value="`)
+	b.WriteString(html.EscapeString(task.Title))
+	b.WriteString(`" required>`)
+	b.WriteString(`<label>Description</label><textarea name="description" required>`)
+	b.WriteString(html.EscapeString(task.Description))
+	b.WriteString(`</textarea>`)
+
+	b.WriteString(`<label>Status</label><select name="status" required>`)
+	for _, status := range []string{"todo", "in_progress", "done"} {
+		selected := ""
+		if status == task.Status {
+			selected = ` selected`
+		}
+		b.WriteString(`<option value="`)
+		b.WriteString(status)
+		b.WriteString(`"`)
+		b.WriteString(selected)
+		b.WriteString(`>`)
+		b.WriteString(status)
+		b.WriteString(`</option>`)
+	}
+	b.WriteString(`</select>`)
+
+	b.WriteString(`<label>Assignee</label><select name="assigneeId"><option value="">Unassigned</option>`)
+	for _, user := range users {
+		selected := ""
+		if task.AssigneeID != nil && *task.AssigneeID == user.ID {
+			selected = ` selected`
+		}
+		b.WriteString(`<option value="`)
+		b.WriteString(strconv.Itoa(user.ID))
+		b.WriteString(`"`)
+		b.WriteString(selected)
+		b.WriteString(`>`)
+		b.WriteString(html.EscapeString(user.Name))
+		b.WriteString(`</option>`)
+	}
+	b.WriteString(`</select><button type="submit">`)
+	b.WriteString(html.EscapeString(actionLabel))
+	b.WriteString(`</button></form></div>`)
+	return b.String()
+}
+
+func filterGoals(goals []*types.GoalWithTasks, query, status string) []*types.GoalWithTasks {
+	if query == "" && status == "" {
+		return goals
+	}
+	q := strings.ToLower(query)
+	result := make([]*types.GoalWithTasks, 0)
+	for _, goal := range goals {
+		if q != "" {
+			combined := strings.ToLower(goal.Title + " " + goal.Description)
+			if !strings.Contains(combined, q) {
+				continue
 			}
 		}
-		b.WriteString(`</div></article>`)
+		if status != "" {
+			matched := false
+			for _, task := range goal.Tasks {
+				if task.Status == status {
+					matched = true
+					break
+				}
+			}
+			if !matched {
+				continue
+			}
+		}
+		result = append(result, goal)
 	}
-
-	return b.String()
+	return result
 }
 
-func renderAssignedTasks(tasks []*types.Task) string {
-	if len(tasks) == 0 {
-		return `<div class="empty">No tasks assigned to you.</div>`
+func filterTasks(tasks []*types.Task, query, status string) []*types.Task {
+	if query == "" && status == "" {
+		return tasks
 	}
-
-	var b strings.Builder
+	q := strings.ToLower(query)
+	result := make([]*types.Task, 0)
 	for _, task := range tasks {
-		b.WriteString(`<div class="task"><strong>`)
-		b.WriteString(html.EscapeString(task.Title))
-		b.WriteString(`</strong><p>`)
-		b.WriteString(html.EscapeString(task.Description))
-		b.WriteString(`</p><small>Task ID: `)
-		b.WriteString(strconv.Itoa(task.ID))
-		b.WriteString(` | Goal ID: `)
-		b.WriteString(strconv.Itoa(task.GoalID))
-		b.WriteString(`</small></div>`)
+		if q != "" {
+			combined := strings.ToLower(task.Title + " " + task.Description + " " + task.GoalTitle + " " + task.AssigneeName + " " + task.CreatedByName)
+			if !strings.Contains(combined, q) {
+				continue
+			}
+		}
+		if status != "" && task.Status != status {
+			continue
+		}
+		result = append(result, task)
 	}
-
-	return b.String()
+	return result
 }
 
-const dashboardPage = `<!doctype html>
-<html lang="en">
-<head>
-  <meta charset="utf-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>Task Tracker</title>
-  <script src="https://unpkg.com/htmx.org@1.9.12"></script>
-  <style>
-    :root { --bg:#f5f8ff; --ink:#0f172a; --accent:#0ea5a8; --card:#ffffff; --line:#cbd5e1; }
-    * { box-sizing: border-box; }
-    body { margin:0; font-family: "Trebuchet MS", "Segoe UI", sans-serif; color:var(--ink); background:linear-gradient(145deg,#eef4ff,#f8fff8); }
-    .wrap { max-width:1100px; margin:0 auto; padding:20px; }
-    .grid { display:grid; grid-template-columns:1fr 1fr; gap:16px; }
-    .panel { background:var(--card); border:1px solid var(--line); border-radius:14px; padding:14px; box-shadow:0 8px 24px rgba(15,23,42,.06); }
-    .panel h2, .panel h3 { margin:.2rem 0 .8rem; }
-    input, textarea, button { width:100%; margin:.3rem 0; padding:.6rem .7rem; border-radius:10px; border:1px solid var(--line); }
-    button { background:var(--accent); color:#fff; border:none; cursor:pointer; font-weight:700; }
-    .card, .task { border:1px solid var(--line); border-radius:12px; background:#fff; padding:10px; margin:10px 0; }
-    .empty { color:#475569; font-style:italic; padding:8px 0; }
-    @media (max-width:900px){ .grid { grid-template-columns:1fr; } }
-  </style>
-</head>
-<body>
-  <div class="wrap">
-    <h1>Goal-Based Task Tracker</h1>
-    <div class="grid">
-      <section class="panel">
-        <h2>Auth</h2>
-        <input id="token" placeholder="JWT token appears here after login">
-        <form id="registerForm">
-          <h3>Register</h3>
-          <input name="firstName" placeholder="First name" required>
-          <input name="lastName" placeholder="Last name" required>
-          <input name="email" type="email" placeholder="Email" required>
-          <input name="password" type="password" placeholder="Password" required>
-          <button type="submit">Register</button>
-        </form>
-        <form id="loginForm">
-          <h3>Login</h3>
-          <input name="email" type="email" placeholder="Email" required>
-          <input name="password" type="password" placeholder="Password" required>
-          <button type="submit">Login</button>
-        </form>
-      </section>
+func flattenOwnedTasks(goals []*types.GoalWithTasks) []*types.Task {
+	tasks := make([]*types.Task, 0)
+	for _, goal := range goals {
+		for _, task := range goal.Tasks {
+			copyTask := *task
+			if copyTask.GoalTitle == "" {
+				copyTask.GoalTitle = goal.Title
+			}
+			if copyTask.AssigneeName == "" && copyTask.AssigneeID != nil {
+				copyTask.AssigneeName = fmt.Sprintf("User %d", *copyTask.AssigneeID)
+			}
+			if copyTask.CreatedByName == "" && copyTask.CreatedBy > 0 {
+				copyTask.CreatedByName = fmt.Sprintf("User %d", copyTask.CreatedBy)
+			}
+			tasks = append(tasks, &copyTask)
+		}
+	}
+	return tasks
+}
 
-      <section class="panel">
-        <h2>Create Goal</h2>
-        <form hx-post="/htmx/goals/create" hx-target="#goalsList" hx-swap="innerHTML">
-          <input name="title" placeholder="Big goal title" required>
-          <textarea name="description" placeholder="Goal description" required></textarea>
-          <button type="submit">Create Goal</button>
-        </form>
+func findGoal(goals []*types.GoalWithTasks, goalID int) *types.Goal {
+	for _, goal := range goals {
+		if goal.ID == goalID {
+			copyGoal := goal.Goal
+			return &copyGoal
+		}
+	}
+	return nil
+}
 
-        <h2>Create Task</h2>
-        <form hx-post="/htmx/tasks/create" hx-target="#goalsList" hx-swap="innerHTML">
-          <input name="goalId" type="number" placeholder="Goal ID" required>
-          <input name="title" placeholder="Task title" required>
-          <textarea name="description" placeholder="Task description" required></textarea>
-          <input name="assigneeId" type="number" placeholder="Assignee user ID (optional)">
-          <button type="submit">Create Task</button>
-        </form>
-
-        <h2>Assign Task</h2>
-        <form hx-post="/htmx/tasks/assign" hx-target="#goalsList" hx-swap="innerHTML">
-          <input name="taskId" type="number" placeholder="Task ID" required>
-          <input name="assigneeId" type="number" placeholder="Assignee user ID (empty to unassign)">
-          <button type="submit">Assign</button>
-        </form>
-      </section>
-    </div>
-
-    <section class="panel">
-      <h2>Your Goals</h2>
-      <button hx-get="/htmx/goals" hx-target="#goalsList" hx-swap="innerHTML">Refresh Goals</button>
-      <div id="goalsList"></div>
-    </section>
-
-    <section class="panel">
-      <h2>Tasks Assigned To You</h2>
-      <button hx-get="/htmx/tasks/assigned" hx-target="#assignedList" hx-swap="innerHTML">Refresh Assigned</button>
-      <div id="assignedList"></div>
-    </section>
-  </div>
-
-  <script>
-    const tokenInput = document.getElementById('token');
-
-    document.body.addEventListener('htmx:configRequest', function(evt) {
-      const token = tokenInput.value.trim();
-      if (token) {
-        evt.detail.headers['Authorization'] = token;
-      }
-    });
-
-    document.getElementById('registerForm').addEventListener('submit', async function(evt) {
-      evt.preventDefault();
-      const formData = new FormData(evt.target);
-      const payload = Object.fromEntries(formData.entries());
-      await fetch('/api/v1/register', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(payload),
-      });
-    });
-
-    document.getElementById('loginForm').addEventListener('submit', async function(evt) {
-      evt.preventDefault();
-      const formData = new FormData(evt.target);
-      const payload = Object.fromEntries(formData.entries());
-      const res = await fetch('/api/v1/login', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(payload),
-      });
-      const data = await res.json().catch(() => ({}));
-      if (data.token) tokenInput.value = data.token;
-    });
-  </script>
-</body>
-</html>`
+func findTask(tasks []*types.Task, taskID int) *types.Task {
+	for _, task := range tasks {
+		if task.ID == taskID {
+			copyTask := *task
+			return &copyTask
+		}
+	}
+	return nil
+}

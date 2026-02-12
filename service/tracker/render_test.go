@@ -6,10 +6,10 @@ import (
 	"testing"
 )
 
-func TestRenderGoals(t *testing.T) {
+func TestRenderGoalsTable(t *testing.T) {
 	t.Run("renders empty state", func(t *testing.T) {
-		out := renderGoals(nil)
-		if !strings.Contains(out, "No goals yet.") {
+		out := renderGoalsTable(nil)
+		if !strings.Contains(out, "No goals found") {
 			t.Fatalf("expected empty state, got %s", out)
 		}
 	})
@@ -24,17 +24,17 @@ func TestRenderGoals(t *testing.T) {
 				},
 			},
 		}
-		out := renderGoals(goals)
+		out := renderGoalsTable(goals)
 		if strings.Contains(out, "<script>alert(1)</script>") {
 			t.Fatalf("expected escaped output, got %s", out)
 		}
 	})
 }
 
-func TestRenderAssignedTasks(t *testing.T) {
-	t.Run("renders empty assigned state", func(t *testing.T) {
-		out := renderAssignedTasks(nil)
-		if !strings.Contains(out, "No tasks assigned to you.") {
+func TestRenderTasksTable(t *testing.T) {
+	t.Run("renders empty tasks state", func(t *testing.T) {
+		out := renderTasksTable(nil)
+		if !strings.Contains(out, "No tasks found") {
 			t.Fatalf("expected empty state, got %s", out)
 		}
 	})

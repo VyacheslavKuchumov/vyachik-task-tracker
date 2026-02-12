@@ -87,7 +87,9 @@ func loadEnvFromProjectRoot() {
 
 	// Method 4: Try current directory as last resort
 	if err := godotenv.Load(); err != nil {
-		log.Printf("Warning: Could not load .env file from any location")
+		if os.Getenv("DB_HOST") == "" && os.Getenv("JWT_SECRET") == "" {
+			log.Printf("Warning: Could not load .env file from any location")
+		}
 	}
 }
 

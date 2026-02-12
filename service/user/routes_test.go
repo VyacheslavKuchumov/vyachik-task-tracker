@@ -8,13 +8,14 @@ import (
 	"fmt"
 	"net/http"
 	"net/http/httptest"
+	"strings"
 	"testing"
 
 	"github.com/go-chi/chi/v5"
 )
 
 func TestUserServiceHandlers(t *testing.T) {
-	userStore := &mockUserStore{}
+	userStore := &mockUserStore{userByEmail: map[string]*types.User{}}
 	handler := NewHandler(userStore)
 
 	t.Run("should fail if the user payload is invalid", func(t *testing.T) {
@@ -116,6 +117,55 @@ func TestUserServiceHandlers(t *testing.T) {
 
 		if rr.Code != http.StatusOK {
 			t.Errorf("Expected status code %d, got %d", http.StatusOK, rr.Code)
+		}
+
+		cookies := rr.Result().Cookies()
+		if len(cookies) == 0 || cookies[0].Name != auth.AuthCookieName {
+			t.Errorf("Expected auth cookie %q to be set", auth.AuthCookieName)
+		}
+	})
+
+	t.Run("should login from web form and redirect", func(t *testing.T) {
+		hash, err := auth.HashPassword("secret")
+		if err != nil {
+			t.Fatal(err)
+		}
+		userStore.userByEmail["web@example.com"] = &types.User{
+			ID:       2,
+			Email:    "web@example.com",
+			Password: hash,
+		}
+
+		req := httptest.NewRequest(http.MethodPost, "/auth/login", bytes.NewBufferString("email=web%40example.com&password=secret"))
+		req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+		rr := httptest.NewRecorder()
+
+		handler.HandleWebLogin(rr, req)
+
+		if rr.Code != http.StatusSeeOther {
+			t.Errorf("Expected status code %d, got %d", http.StatusSeeOther, rr.Code)
+		}
+
+		location := rr.Result().Header.Get("Location")
+		if location != "/goals" {
+			t.Errorf("Expected redirect to /goals, got %s", location)
+		}
+	})
+
+	t.Run("should register from web form and redirect to login", func(t *testing.T) {
+		req := httptest.NewRequest(http.MethodPost, "/auth/register", bytes.NewBufferString("firstName=John&lastName=Doe&email=new%40example.com&password=secret"))
+		req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+		rr := httptest.NewRecorder()
+
+		handler.HandleWebRegister(rr, req)
+
+		if rr.Code != http.StatusSeeOther {
+			t.Errorf("Expected status code %d, got %d", http.StatusSeeOther, rr.Code)
+		}
+
+		location := rr.Result().Header.Get("Location")
+		if !strings.HasPrefix(location, "/login") {
+			t.Errorf("Expected redirect to /login with status, got %s", location)
 		}
 	})
 }

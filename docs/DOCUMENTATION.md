@@ -54,10 +54,25 @@ Copy from `example.env` or edit `.env` directly:
 
 ## Run Locally
 
-1. Start PostgreSQL:
+### Option A: Docker Compose (Postgres + App together)
 
 ```bash
-docker compose up -d
+docker compose up -d --build
+```
+
+This starts:
+
+- `postgres` on host port `5433`
+- `app` on `http://localhost:8000`
+
+The app container runs DB migrations at startup automatically.
+
+### Option B: Local dev with hot reload
+
+1. Start PostgreSQL only:
+
+```bash
+make docker-db-up
 ```
 
 2. Apply migrations:
@@ -72,10 +87,13 @@ make migrate-up
 make air
 ```
 
-Server URL:
+Server routes:
 
-- API + dashboard: `http://localhost:8000`
-- HTMX dashboard page: `http://localhost:8000/`
+- Login: `http://localhost:8000/login`
+- Register: `http://localhost:8000/register`
+- Goals: `http://localhost:8000/goals`
+- Assigned tasks: `http://localhost:8000/tasks`
+- API base: `http://localhost:8000/api/v1`
 
 ## Common Make Targets
 
@@ -83,17 +101,24 @@ Server URL:
 - `make migrate-up`: apply migrations
 - `make migrate-down`: rollback all migrations
 - `make migrate-force`: force migration version
-- `make docker-up`: start Postgres container
+- `make docker-up`: start full stack (Postgres + app) with compose
+- `make docker-db-up`: start only Postgres container
 - `make docker-down`: stop Postgres container
 - `make air`: run app with hot reload
 
 ## Authentication
 
-Login endpoint returns a JWT token:
+Login endpoint returns a JWT token and also sets an HTTP-only cookie:
 
 - `POST /api/v1/login`
 
-Use token in `Authorization` header:
+Cookie name:
+
+- `task_tracker_token`
+
+Web pages and HTMX requests use the cookie automatically.
+
+For API clients, you can still use `Authorization` header:
 
 - `Authorization: Bearer <token>`
 
@@ -308,26 +333,53 @@ Common status codes:
 - `403`: forbidden (auth failed or insufficient ownership)
 - `500`: internal server/database error
 
+## Frontend Pages
+
+Public pages:
+
+- `GET /login`
+- `GET /register`
+
+Protected pages:
+
+- `GET /goals`
+- `GET /tasks`
+
+Auth actions:
+
+- `POST /auth/login`
+- `POST /auth/register`
+- `POST /auth/logout`
+
 ## HTMX Frontend
-
-Dashboard route:
-
-- `GET /`
 
 HTMX endpoints (JWT required):
 
 - `GET /htmx/goals`
-- `POST /htmx/goals/create`
-- `GET /htmx/tasks/assigned`
-- `POST /htmx/tasks/create`
-- `POST /htmx/tasks/assign`
+- `GET /htmx/goals/card`
+- `GET /htmx/goals/card/{goalID}`
+- `POST /htmx/goals/save`
+- `GET /htmx/tasks`
+- `GET /htmx/tasks/card`
+- `GET /htmx/tasks/card/{taskID}`
+- `POST /htmx/tasks/save`
 
 Flow:
 
-1. Register and login on dashboard form
-2. Token is stored in page input
-3. HTMX requests include token in `Authorization` header
-4. Create goals/tasks and refresh lists from UI buttons
+1. Register from `/register`
+2. Login from `/login` (server sets HTTP-only auth cookie)
+3. Open `/goals` and `/tasks`
+4. Use **List view** (table + filters + toolbar operations)
+5. Use **Card view** (create/edit one object)
+6. HTMX calls reuse cookie automatically
+
+Frontend notes:
+
+- IDs are not displayed in table/list columns.
+- Related objects are shown via lookups by name:
+  - Task -> goal title
+  - Task -> assignee full name
+  - Task -> creator full name
 
 ## Migration Notes (MySQL -> PostgreSQL)
 
@@ -350,7 +402,8 @@ Project maps Postgres to host port `5433` by default to avoid conflicts:
 
 ### Auth always returns 403
 
-- Confirm `Authorization` header has a valid JWT from `/api/v1/login`
+- Confirm cookie `task_tracker_token` exists after login
+- For API clients, confirm `Authorization` has a valid JWT from `/api/v1/login`
 - Confirm token uses same `JWT_SECRET` as backend config
 
 ### Migration errors

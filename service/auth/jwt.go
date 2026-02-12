@@ -18,6 +18,7 @@ import (
 type contextKey string
 
 const UserKey contextKey = "userID"
+const AuthCookieName = "task_tracker_token"
 
 func CreateJWT(secret []byte, userID int) (string, error) {
 	expiration := time.Second * time.Duration(config.Envs.JWTExpirationInSeconds)
@@ -34,47 +35,103 @@ func CreateJWT(secret []byte, userID int) (string, error) {
 	return tokenString, nil
 }
 
+func SetAuthCookie(w http.ResponseWriter, token string) {
+	expiration := time.Second * time.Duration(config.Envs.JWTExpirationInSeconds)
+	expiresAt := time.Now().Add(expiration)
+	http.SetCookie(w, &http.Cookie{
+		Name:     AuthCookieName,
+		Value:    token,
+		Path:     "/",
+		Expires:  expiresAt,
+		MaxAge:   int(config.Envs.JWTExpirationInSeconds),
+		HttpOnly: true,
+		SameSite: http.SameSiteLaxMode,
+	})
+}
+
+func ClearAuthCookie(w http.ResponseWriter) {
+	http.SetCookie(w, &http.Cookie{
+		Name:     AuthCookieName,
+		Value:    "",
+		Path:     "/",
+		Expires:  time.Unix(0, 0),
+		MaxAge:   -1,
+		HttpOnly: true,
+		SameSite: http.SameSiteLaxMode,
+	})
+}
+
 func WithJWTAuth(handlerFunc http.HandlerFunc, store types.UserStore) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
-		tokenString := getTokenFromRequest(r)
-		token, err := validateToken(tokenString)
+		userID, err := getUserIDFromRequest(r, store)
 		if err != nil {
-			log.Printf("Failed to validate token: %v", err)
-			permissionDenied(w)
-			return
-		}
-
-		if !token.Valid {
-			log.Println("Invalid token")
-			permissionDenied(w)
-			return
-		}
-
-		claims := token.Claims.(jwt.MapClaims)
-		str := claims["userID"].(string)
-
-		userID, _ := strconv.Atoi(str)
-
-		u, err := store.GetUserByID(userID)
-		if err != nil {
-			log.Printf("Failed to get user by id: %v", err)
+			log.Printf("Failed to authorize request: %v", err)
 			permissionDenied(w)
 			return
 		}
 
 		ctx := r.Context()
-		ctx = context.WithValue(ctx, UserKey, u.ID)
+		ctx = context.WithValue(ctx, UserKey, userID)
 		r = r.WithContext(ctx)
 
 		handlerFunc(w, r)
 	}
 }
 
+func WithJWTPageAuth(handlerFunc http.HandlerFunc, store types.UserStore) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		userID, err := getUserIDFromRequest(r, store)
+		if err != nil {
+			http.Redirect(w, r, "/login", http.StatusSeeOther)
+			return
+		}
+
+		ctx := r.Context()
+		ctx = context.WithValue(ctx, UserKey, userID)
+		r = r.WithContext(ctx)
+
+		handlerFunc(w, r)
+	}
+}
+
+func getUserIDFromRequest(r *http.Request, store types.UserStore) (int, error) {
+	tokenString := getTokenFromRequest(r)
+	token, err := validateToken(tokenString)
+	if err != nil {
+		return 0, err
+	}
+
+	if !token.Valid {
+		return 0, fmt.Errorf("invalid token")
+	}
+
+	claims := token.Claims.(jwt.MapClaims)
+	str, ok := claims["userID"].(string)
+	if !ok {
+		return 0, fmt.Errorf("missing userID claim")
+	}
+	userID, err := strconv.Atoi(str)
+	if err != nil {
+		return 0, err
+	}
+
+	u, err := store.GetUserByID(userID)
+	if err != nil {
+		return 0, err
+	}
+
+	return u.ID, nil
+}
+
 func getTokenFromRequest(r *http.Request) string {
 	tokenAuth := r.Header.Get("Authorization")
 	tokenAuth = strings.TrimSpace(tokenAuth)
 	if tokenAuth == "" {
-		return ""
+		cookie, err := r.Cookie(AuthCookieName)
+		if err != nil {
+			return ""
+		}
+		return strings.TrimSpace(cookie.Value)
 	}
 
 	if strings.HasPrefix(strings.ToLower(tokenAuth), "bearer ") {
