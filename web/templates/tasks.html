@@ -9,20 +9,23 @@
 </head>
 <body>
   <main class="wrap">
-    <div class="nav">
-      <a class="link" href="/goals">Goals</a>
-      <a class="link" href="/tasks">Tasks</a>
+    <header class="topbar">
+      <a class="brand" href="/goals">Vyachik Tracker</a>
+      <nav class="tabs">
+        <a class="tab" href="/goals">Goals</a>
+        <a class="tab is-active" href="/tasks">Tasks</a>
+      </nav>
       <form method="post" action="/auth/logout">
-        <button type="submit">Logout</button>
+        <button class="btn btn-secondary btn-small" type="submit">Logout</button>
       </form>
-    </div>
+    </header>
 
-    <section class="panel">
-      <h1>Tasks</h1>
-      <p>List view with filters and toolbar operations. Related goal/user data is shown by name.</p>
+    <section class="panel hero">
+      <h1>Task Workspace</h1>
+      <p>Filter by status, keep assignment visible, and open edits on dedicated pages with explicit IDs.</p>
     </section>
 
-    <div class="row">
+    <div class="row row-2-1">
       <section class="panel">
         <div class="toolbar">
           <input name="q" form="tasksFilter" placeholder="Filter by task, goal or user names">
@@ -32,16 +35,16 @@
             <option value="in_progress">in_progress</option>
             <option value="done">done</option>
           </select>
-          <button type="submit" form="tasksFilter">Filter</button>
-          <button hx-get="/htmx/tasks/card" hx-target="#taskCard" hx-swap="innerHTML">New Task</button>
+          <button class="btn btn-secondary" type="submit" form="tasksFilter">Filter</button>
+          <button class="btn" hx-get="/htmx/tasks/card" hx-target="#taskCard" hx-swap="innerHTML">New Task</button>
         </div>
         <form id="tasksFilter" hx-get="/htmx/tasks" hx-target="#tasksTable" hx-swap="innerHTML"></form>
         <div id="tasksTable" hx-get="/htmx/tasks" hx-trigger="load" hx-swap="innerHTML"></div>
       </section>
 
       <section class="panel">
-        <h2>Task Card</h2>
-        <p>Create or edit one task object.</p>
+        <h2>Create Task</h2>
+        <p>Add a task quickly here. Edit actions open in a separate route that requires `?id=`.</p>
         <div id="taskCard" hx-get="/htmx/tasks/card" hx-trigger="load" hx-swap="innerHTML"></div>
       </section>
     </div>

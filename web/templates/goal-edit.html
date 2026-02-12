@@ -1,0 +1,36 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>{{.Title}}</title>
+  <script src="https://unpkg.com/htmx.org@1.9.12"></script>
+  <link rel="stylesheet" href="/static/styles.css">
+</head>
+<body>
+  <main class="wrap">
+    <header class="topbar">
+      <a class="brand" href="/goals">Vyachik Tracker</a>
+      <nav class="tabs">
+        <a class="tab is-active" href="/goals">Goals</a>
+        <a class="tab" href="/tasks">Tasks</a>
+      </nav>
+      <form method="post" action="/auth/logout">
+        <button class="btn btn-secondary btn-small" type="submit">Logout</button>
+      </form>
+    </header>
+
+    <section class="panel hero compact">
+      <h1>{{.Title}}</h1>
+      <p>This page requires an explicit `id` query parameter and is dedicated to editing.</p>
+    </section>
+
+    <section class="panel editor-shell">
+      <div class="editor-head">
+        <a class="btn btn-secondary btn-small" href="{{.BackURL}}">Back to List</a>
+      </div>
+      <div id="goalCard" hx-get="{{.CardURL}}" hx-trigger="load" hx-swap="innerHTML"></div>
+    </section>
+  </main>
+</body>
+</html>

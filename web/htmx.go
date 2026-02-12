@@ -57,6 +57,9 @@ func (h *Handler) HandleHTMXGoalCard(w http.ResponseWriter, r *http.Request) {
 
 	var goal *types.Goal
 	goalIDRaw := strings.TrimSpace(chi.URLParam(r, "goalID"))
+	if goalIDRaw == "" {
+		goalIDRaw = strings.TrimSpace(r.URL.Query().Get("id"))
+	}
 	if goalIDRaw != "" {
 		goalID, err := strconv.Atoi(goalIDRaw)
 		if err != nil || goalID <= 0 {
@@ -71,7 +74,8 @@ func (h *Handler) HandleHTMXGoalCard(w http.ResponseWriter, r *http.Request) {
 	}
 
 	w.Header().Set("Content-Type", "text/html; charset=utf-8")
-	_, _ = w.Write([]byte(renderGoalCard(goal)))
+	redirectTo := sanitizeRedirectTo(strings.TrimSpace(r.URL.Query().Get("redirectTo")))
+	_, _ = w.Write([]byte(renderGoalCard(goal, redirectTo)))
 }
 
 func (h *Handler) HandleHTMXTaskCard(w http.ResponseWriter, r *http.Request) {
@@ -93,6 +97,9 @@ func (h *Handler) HandleHTMXTaskCard(w http.ResponseWriter, r *http.Request) {
 	}
 
 	taskIDRaw := strings.TrimSpace(chi.URLParam(r, "taskID"))
+	if taskIDRaw == "" {
+		taskIDRaw = strings.TrimSpace(r.URL.Query().Get("id"))
+	}
 	if taskIDRaw != "" {
 		taskID, err := strconv.Atoi(taskIDRaw)
 		if err != nil || taskID <= 0 {
@@ -108,7 +115,8 @@ func (h *Handler) HandleHTMXTaskCard(w http.ResponseWriter, r *http.Request) {
 	}
 
 	w.Header().Set("Content-Type", "text/html; charset=utf-8")
-	_, _ = w.Write([]byte(renderTaskCard(task, goals, users)))
+	redirectTo := sanitizeRedirectTo(strings.TrimSpace(r.URL.Query().Get("redirectTo")))
+	_, _ = w.Write([]byte(renderTaskCard(task, goals, users, redirectTo)))
 }
 
 func (h *Handler) HandleHTMXGoalSave(w http.ResponseWriter, r *http.Request) {
@@ -127,6 +135,7 @@ func (h *Handler) HandleHTMXGoalSave(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	redirectTo := sanitizeRedirectTo(strings.TrimSpace(r.FormValue("redirectTo")))
 	goalIDRaw := strings.TrimSpace(r.FormValue("goalId"))
 	if goalIDRaw == "" {
 		if _, err := h.store.CreateGoal(ownerID, payload); err != nil {
@@ -147,6 +156,11 @@ func (h *Handler) HandleHTMXGoalSave(w http.ResponseWriter, r *http.Request) {
 			http.Error(w, err.Error(), status)
 			return
 		}
+	}
+
+	if redirectTo != "" {
+		redirectAfterSave(w, r, redirectTo)
+		return
 	}
 
 	h.HandleHTMXGoals(w, r)
@@ -175,6 +189,7 @@ func (h *Handler) HandleHTMXTaskSave(w http.ResponseWriter, r *http.Request) {
 		assigneeID = &value
 	}
 
+	redirectTo := sanitizeRedirectTo(strings.TrimSpace(r.FormValue("redirectTo")))
 	taskIDRaw := strings.TrimSpace(r.FormValue("taskId"))
 	if taskIDRaw == "" {
 		payload := types.CreateTaskPayload{
@@ -221,6 +236,11 @@ func (h *Handler) HandleHTMXTaskSave(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
+	if redirectTo != "" {
+		redirectAfterSave(w, r, redirectTo)
+		return
+	}
+
 	h.HandleHTMXTasks(w, r)
 }
 
@@ -246,9 +266,9 @@ func renderGoalsTable(goals []*types.GoalWithTasks) string {
 		b.WriteString(strconv.Itoa(len(goal.Tasks)))
 		b.WriteString(`</td><td>`)
 		b.WriteString(goal.CreatedAt.Format("2006-01-02"))
-		b.WriteString(`</td><td><button hx-get="/htmx/goals/card/`)
+		b.WriteString(`</td><td><a class="btn btn-secondary btn-small" href="/goals/edit?id=`)
 		b.WriteString(strconv.Itoa(goal.ID))
-		b.WriteString(`" hx-target="#goalCard" hx-swap="innerHTML">Edit</button></td></tr>`)
+		b.WriteString(`">Edit</a></td></tr>`)
 	}
 	b.WriteString(`</tbody></table>`)
 	return b.String()
@@ -283,21 +303,23 @@ func renderTasksTable(tasks []*types.Task) string {
 		b.WriteString(html.EscapeString(assigneeName))
 		b.WriteString(`</td><td>`)
 		b.WriteString(html.EscapeString(creatorName))
-		b.WriteString(`</td><td><button hx-get="/htmx/tasks/card/`)
+		b.WriteString(`</td><td><a class="btn btn-secondary btn-small" href="/tasks/edit?id=`)
 		b.WriteString(strconv.Itoa(task.ID))
-		b.WriteString(`" hx-target="#taskCard" hx-swap="innerHTML">Edit</button></td></tr>`)
+		b.WriteString(`">Edit</a></td></tr>`)
 	}
 	b.WriteString(`</tbody></table>`)
 	return b.String()
 }
 
-func renderGoalCard(goal *types.Goal) string {
+func renderGoalCard(goal *types.Goal, redirectTo string) string {
 	isEdit := goal != nil
 	title := "Create Goal"
 	actionLabel := "Create"
 	goalIDValue := ""
 	goalTitle := ""
 	goalDescription := ""
+	target := "#goalsTable"
+	swap := "innerHTML"
 	if isEdit {
 		title = "Edit Goal"
 		actionLabel = "Update"
@@ -305,14 +327,27 @@ func renderGoalCard(goal *types.Goal) string {
 		goalTitle = goal.Title
 		goalDescription = goal.Description
 	}
+	if redirectTo != "" {
+		target = "this"
+		swap = "outerHTML"
+	}
 
 	var b strings.Builder
 	b.WriteString(`<div class="card-form"><h3>`)
 	b.WriteString(html.EscapeString(title))
-	b.WriteString(`</h3><form class="stack" hx-post="/htmx/goals/save" hx-target="#goalsTable" hx-swap="innerHTML">`)
+	b.WriteString(`</h3><form class="stack" hx-post="/htmx/goals/save" hx-target="`)
+	b.WriteString(target)
+	b.WriteString(`" hx-swap="`)
+	b.WriteString(swap)
+	b.WriteString(`">`)
 	b.WriteString(`<input type="hidden" name="goalId" value="`)
 	b.WriteString(html.EscapeString(goalIDValue))
 	b.WriteString(`">`)
+	if redirectTo != "" {
+		b.WriteString(`<input type="hidden" name="redirectTo" value="`)
+		b.WriteString(html.EscapeString(redirectTo))
+		b.WriteString(`">`)
+	}
 	b.WriteString(`<label>Title</label><input name="title" value="`)
 	b.WriteString(html.EscapeString(goalTitle))
 	b.WriteString(`" required>`)
@@ -324,7 +359,7 @@ func renderGoalCard(goal *types.Goal) string {
 	return b.String()
 }
 
-func renderTaskCard(task *types.Task, goals []*types.GoalWithTasks, users []*types.UserLookup) string {
+func renderTaskCard(task *types.Task, goals []*types.GoalWithTasks, users []*types.UserLookup, redirectTo string) string {
 	if len(goals) == 0 {
 		return `<div class="empty">Create at least one goal before creating tasks.</div>`
 	}
@@ -340,19 +375,34 @@ func renderTaskCard(task *types.Task, goals []*types.GoalWithTasks, users []*typ
 	title := "Create Task"
 	actionLabel := "Create"
 	taskIDValue := ""
+	target := "#tasksTable"
+	swap := "innerHTML"
 	if isEdit {
 		title = "Edit Task"
 		actionLabel = "Update"
 		taskIDValue = strconv.Itoa(task.ID)
 	}
+	if redirectTo != "" {
+		target = "this"
+		swap = "outerHTML"
+	}
 
 	var b strings.Builder
 	b.WriteString(`<div class="card-form"><h3>`)
 	b.WriteString(html.EscapeString(title))
-	b.WriteString(`</h3><form class="stack" hx-post="/htmx/tasks/save" hx-target="#tasksTable" hx-swap="innerHTML">`)
+	b.WriteString(`</h3><form class="stack" hx-post="/htmx/tasks/save" hx-target="`)
+	b.WriteString(target)
+	b.WriteString(`" hx-swap="`)
+	b.WriteString(swap)
+	b.WriteString(`">`)
 	b.WriteString(`<input type="hidden" name="taskId" value="`)
 	b.WriteString(html.EscapeString(taskIDValue))
 	b.WriteString(`">`)
+	if redirectTo != "" {
+		b.WriteString(`<input type="hidden" name="redirectTo" value="`)
+		b.WriteString(html.EscapeString(redirectTo))
+		b.WriteString(`">`)
+	}
 
 	b.WriteString(`<label>Goal</label><select name="goalId" required>`)
 	for _, goal := range goals {
@@ -411,6 +461,25 @@ func renderTaskCard(task *types.Task, goals []*types.GoalWithTasks, users []*typ
 	b.WriteString(html.EscapeString(actionLabel))
 	b.WriteString(`</button></form></div>`)
 	return b.String()
+}
+
+func sanitizeRedirectTo(target string) string {
+	switch target {
+	case "/goals", "/tasks":
+		return target
+	default:
+		return ""
+	}
+}
+
+func redirectAfterSave(w http.ResponseWriter, r *http.Request, redirectTo string) {
+	if strings.EqualFold(strings.TrimSpace(r.Header.Get("HX-Request")), "true") {
+		w.Header().Set("HX-Redirect", redirectTo)
+		w.WriteHeader(http.StatusNoContent)
+		return
+	}
+
+	http.Redirect(w, r, redirectTo, http.StatusSeeOther)
 }
 
 func filterGoals(goals []*types.GoalWithTasks, query, status string) []*types.GoalWithTasks {

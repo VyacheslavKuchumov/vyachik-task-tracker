@@ -14,7 +14,9 @@ func RegisterRoutes(r chi.Router, handler *Handler, userStore types.UserStore) {
 	r.Get("/login", handler.HandleLoginPage)
 	r.Get("/register", handler.HandleRegisterPage)
 	r.Get("/goals", auth.WithJWTPageAuth(handler.HandleGoalsPage, userStore))
+	r.Get("/goals/edit", auth.WithJWTPageAuth(handler.HandleGoalEditPage, userStore))
 	r.Get("/tasks", auth.WithJWTPageAuth(handler.HandleTasksPage, userStore))
+	r.Get("/tasks/edit", auth.WithJWTPageAuth(handler.HandleTaskEditPage, userStore))
 
 	r.Route("/htmx", func(r chi.Router) {
 		r.Get("/goals", auth.WithJWTAuth(handler.HandleHTMXGoals, userStore))

@@ -9,20 +9,23 @@
 </head>
 <body>
   <main class="wrap">
-    <div class="nav">
-      <a class="link" href="/goals">Goals</a>
-      <a class="link" href="/tasks">Tasks</a>
+    <header class="topbar">
+      <a class="brand" href="/goals">Vyachik Tracker</a>
+      <nav class="tabs">
+        <a class="tab is-active" href="/goals">Goals</a>
+        <a class="tab" href="/tasks">Tasks</a>
+      </nav>
       <form method="post" action="/auth/logout">
-        <button type="submit">Logout</button>
+        <button class="btn btn-secondary btn-small" type="submit">Logout</button>
       </form>
-    </div>
+    </header>
 
-    <section class="panel">
-      <h1>Goals</h1>
-      <p>List view with filters and toolbar operations. Create and edit one goal in the card panel.</p>
+    <section class="panel hero">
+      <h1>Goal Workspace</h1>
+      <p>Track the bigger outcomes and keep creation fast while edit actions open on dedicated pages.</p>
     </section>
 
-    <div class="row">
+    <div class="row row-2-1">
       <section class="panel">
         <div class="toolbar">
           <input name="q" form="goalsFilter" placeholder="Filter by goal title or description">
@@ -32,25 +35,19 @@
             <option value="in_progress">in_progress</option>
             <option value="done">done</option>
           </select>
-          <button type="submit" form="goalsFilter">Filter</button>
-          <button hx-get="/htmx/goals/card" hx-target="#goalCard" hx-swap="innerHTML">New Goal</button>
+          <button class="btn btn-secondary" type="submit" form="goalsFilter">Filter</button>
+          <button class="btn" hx-get="/htmx/goals/card" hx-target="#goalCard" hx-swap="innerHTML">New Goal</button>
         </div>
         <form id="goalsFilter" hx-get="/htmx/goals" hx-target="#goalsTable" hx-swap="innerHTML"></form>
         <div id="goalsTable" hx-get="/htmx/goals" hx-trigger="load" hx-swap="innerHTML"></div>
       </section>
 
       <section class="panel">
-        <h2>Goal Card</h2>
-        <p>Create or edit one goal object.</p>
+        <h2>Create Goal</h2>
+        <p>Use this quick form to add a new goal. Edit opens on a separate page.</p>
         <div id="goalCard" hx-get="/htmx/goals/card" hx-trigger="load" hx-swap="innerHTML"></div>
       </section>
     </div>
-
-    <section class="panel">
-      <h2>Task Operations</h2>
-      <p>Use the dedicated tasks page for list/card task management.</p>
-      <a class="link" href="/tasks">Open Tasks Page</a>
-    </section>
   </main>
 </body>
 </html>

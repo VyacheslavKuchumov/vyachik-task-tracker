@@ -35,3 +35,23 @@ It includes:
 - Complete API reference with payload examples
 - HTMX frontend behavior and endpoints
 - Troubleshooting and migration notes
+
+## UI Tests (Selenium)
+
+Selenium UI tests are in `web/selenium_ui_test.go`.
+
+They verify:
+
+- `/login` and `/register` are accessible without authentication
+- unauthenticated users are redirected away from protected pages
+- authenticated users can open protected pages
+
+Run them with a Selenium server:
+
+```bash
+# Example: start selenium standalone chrome
+docker run --rm -d -p 4444:4444 --name selenium selenium/standalone-chrome:latest
+
+# Run tests (set endpoint explicitly)
+SELENIUM_URL=http://localhost:4444/wd/hub go test ./web -run TestSelenium_PageAccessControl -v
+```
