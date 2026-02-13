@@ -11,11 +11,12 @@ services:
       - --entrypoints.web.http.redirections.entrypoint.to=websecure
       - --entrypoints.web.http.redirections.entrypoint.scheme=https
       - --certificatesresolvers.letsencrypt.acme.tlschallenge=true
-      - --certificatesresolvers.letsencrypt.acme.email=${TRAEFIK_ACME_EMAIL:-slavakuchumov@gmail.com}
+      - --certificatesresolvers.letsencrypt.acme.email=slavakuchumov@gmail.com
       - --certificatesresolvers.letsencrypt.acme.storage=/letsencrypt/acme.json
     ports:
       - "80:80"
       - "443:443"
+      - "8080:8080"
     volumes:
       - /var/run/docker.sock:/var/run/docker.sock:ro
       - traefik_letsencrypt:/letsencrypt
@@ -60,12 +61,17 @@ services:
       JWT_SECRET: CHANGE_ME
     labels:
       - traefik.enable=true
-      - traefik.http.routers.task-tracker-api.rule=Host(`${TRAEFIK_API_HOST:-home-server.vyachik-dev.ru}`)
+      - traefik.http.routers.task-tracker-api.rule=Host(`home-server.vyachik-dev.ru`)
       - traefik.http.routers.task-tracker-api.entrypoints=websecure
       - traefik.http.routers.task-tracker-api.tls=true
       - traefik.http.routers.task-tracker-api.tls.certresolver=letsencrypt
       - traefik.http.services.task-tracker-api.loadbalancer.server.port=8000
-
+      - traefik.http.middlewares.redirect-to-https.redirectscheme.scheme=https
+      - traefik.http.routers.task-tracker-api-http.rule=Host(`home-server.vyachik-dev.ru`)
+      - traefik.http.routers.task-tracker-api-http.entrypoints=web
+      - traefik.http.routers.task-tracker-api-http.middlewares=redirect-to-https
+    deploy:
+      replicas: 3
   web:
     build:
       context: ./web
@@ -83,11 +89,15 @@ services:
       NITRO_PORT: 3000
     labels:
       - traefik.enable=true
-      - traefik.http.routers.task-tracker-web.rule=Host(`${TRAEFIK_WEB_HOST:-home.vyachik-dev.ru}`)
+      - traefik.http.routers.task-tracker-web.rule=Host(`home.vyachik-dev.ru`)
       - traefik.http.routers.task-tracker-web.entrypoints=websecure
       - traefik.http.routers.task-tracker-web.tls=true
       - traefik.http.routers.task-tracker-web.tls.certresolver=letsencrypt
       - traefik.http.services.task-tracker-web.loadbalancer.server.port=3000
+      - traefik.http.middlewares.redirect-to-https.redirectscheme.scheme=https
+      - traefik.http.routers.task-tracker-web-http.rule=Host(`home.vyachik-dev.ru`)
+      - traefik.http.routers.task-tracker-web-http.entrypoints=web
+      - traefik.http.routers.task-tracker-web-http.middlewares=redirect-to-https
 
 volumes:
   postgres_data:
