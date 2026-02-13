@@ -119,4 +119,5 @@ make migrate-up
 - Do not work directly on `main` (it is protected).
 - Create and use a feature branch for every task.
 - Commit all agent-made changes to that feature branch.
-- Do not open or merge pull requests as an agent; a human will submit the PR to `main`.
+- Open a pull request from the feature branch to `main` after pushing changes.
+- Do not merge directly to `main`; merging is done via the pull request workflow.
