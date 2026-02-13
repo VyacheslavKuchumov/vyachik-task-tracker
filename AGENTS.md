@@ -56,6 +56,11 @@ npm run dev
 
 ## Testing and Verification
 
+Current automated test suites in this repository:
+
+- Backend Go tests: `cd server && make test`
+- Frontend Playwright e2e tests: `cd web && npm run test:e2e`
+
 Before finishing backend-impacting changes:
 
 ```bash
@@ -68,6 +73,22 @@ For frontend-impacting changes:
 ```bash
 cd web
 npm run build
+```
+
+For frontend user-flow/auth/API integration changes, run end-to-end tests (requires running backend + frontend):
+
+```bash
+cd web
+npm run test:e2e
+```
+
+Playwright helper commands:
+
+```bash
+cd web
+npm run test:e2e:headed
+npm run test:e2e:ui
+npm run test:e2e:report
 ```
 
 If API handlers or payloads changed, regenerate OpenAPI docs:
@@ -117,10 +138,20 @@ make migrate-up
 ## Git Workflow Reminder
 
 - Do not work directly on `main` (it is protected).
+- Before starting development and creating a feature branch, sync with latest `origin/main`:
+  - `git fetch origin`
+  - `git switch main`
+  - `git pull --ff-only origin main`
 - Create and use a feature branch for every task.
+- Before committing, run relevant verification commands:
+  - backend-impacting changes: `cd server && make test`
+  - frontend-impacting changes: `cd web && npm run build`
+  - frontend user-flow/auth/API integration changes: `cd web && npm run test:e2e`
 - Commit all agent-made changes to that feature branch.
 - Open a pull request from the feature branch to `main` after pushing changes.
 - Do not merge directly to `main`; merging is done via the pull request workflow.
+- After opening a PR, reset local DB state so a human can re-verify from clean data:
+  - from repository root: `docker compose down -v --remove-orphans`
 
 ## Commit Message Guidelines
 
@@ -137,5 +168,6 @@ make migrate-up
   - what changed
   - why it changed
   - how it was tested (commands run)
+- When creating PRs with `gh`, use real multiline Markdown (or `--body-file`) and avoid escaped `\n` sequences in the final description.
 - If backend/frontend contracts changed, update relevant docs and proxy/store code in the same PR.
 - If API shapes changed, regenerate Swagger docs before opening PR (`cd server && make swagger`).
