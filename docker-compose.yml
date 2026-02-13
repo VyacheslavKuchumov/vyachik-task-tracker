@@ -32,7 +32,7 @@ services:
     ports:
       - "5433:5432"
     volumes:
-      - postgres_data:/var/lib/postgresql/data
+      - postgres_data:/var/lib/postgresql/task_tracker_data
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U postgres -d task_tracker"]
       interval: 5s
@@ -54,7 +54,7 @@ services:
       DB_USER: postgres
       DB_PASSWORD: postgres
       DB_HOST: postgres
-      DB_PORT: 5432
+      DB_PORT: 6969
       DB_NAME: task_tracker
       DB_SSLMODE: disable
       JWT_EXP: 604800
