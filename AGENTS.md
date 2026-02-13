@@ -168,5 +168,6 @@ make migrate-up
   - what changed
   - why it changed
   - how it was tested (commands run)
+- When creating PRs with `gh`, use real multiline Markdown (or `--body-file`) and avoid escaped `\n` sequences in the final description.
 - If backend/frontend contracts changed, update relevant docs and proxy/store code in the same PR.
 - If API shapes changed, regenerate Swagger docs before opening PR (`cd server && make swagger`).
