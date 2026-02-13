@@ -30,7 +30,7 @@ services:
       POSTGRES_PASSWORD: postgres
       POSTGRES_DB: task_tracker
     ports:
-      - "5433:5432"
+      - "5433:6969"
     volumes:
       - postgres_data:/var/lib/postgresql/task_tracker_data
     healthcheck:
