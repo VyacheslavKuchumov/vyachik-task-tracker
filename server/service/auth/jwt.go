@@ -49,21 +49,46 @@ func SetAuthCookie(w http.ResponseWriter, token string) {
 	})
 }
 
-func WithJWTAuth(handlerFunc http.HandlerFunc, store types.UserStore) http.HandlerFunc {
-	return func(w http.ResponseWriter, r *http.Request) {
-		userID, err := getUserIDFromRequest(r, store)
-		if err != nil {
-			log.Printf("Failed to authorize request: %v", err)
-			permissionDenied(w)
-			return
-		}
+func JWTAuthMiddleware(store types.UserStore) func(http.Handler) http.Handler {
+	return func(next http.Handler) http.Handler {
+		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			userID, err := getUserIDFromRequest(r, store)
+			if err != nil {
+				log.Printf("Failed to authorize request: %v", err)
+				permissionDenied(w)
+				return
+			}
 
-		ctx := r.Context()
-		ctx = context.WithValue(ctx, UserKey, userID)
-		r = r.WithContext(ctx)
-
-		handlerFunc(w, r)
+			ctx := r.Context()
+			ctx = context.WithValue(ctx, UserKey, userID)
+			next.ServeHTTP(w, r.WithContext(ctx))
+		})
 	}
+}
+
+func JWTAuthMiddlewareWithExclusions(store types.UserStore, excludedPaths ...string) func(http.Handler) http.Handler {
+	excluded := make(map[string]struct{}, len(excludedPaths))
+	for _, path := range excludedPaths {
+		excluded[normalizePath(path)] = struct{}{}
+	}
+
+	baseMiddleware := JWTAuthMiddleware(store)
+	return func(next http.Handler) http.Handler {
+		protectedNext := baseMiddleware(next)
+		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			if _, ok := excluded[normalizePath(r.URL.Path)]; ok {
+				next.ServeHTTP(w, r)
+				return
+			}
+			protectedNext.ServeHTTP(w, r)
+		})
+	}
+}
+
+func WithJWTAuth(handlerFunc http.HandlerFunc, store types.UserStore) http.HandlerFunc {
+	middleware := JWTAuthMiddleware(store)
+	protectedHandler := middleware(http.HandlerFunc(handlerFunc))
+	return protectedHandler.ServeHTTP
 }
 
 func getUserIDFromRequest(r *http.Request, store types.UserStore) (int, error) {
@@ -135,4 +160,18 @@ func GetUserIDFromContext(ctx context.Context) int {
 	}
 
 	return userID
+}
+
+func normalizePath(path string) string {
+	path = strings.TrimSpace(path)
+	if path == "" {
+		return "/"
+	}
+	if len(path) > 1 {
+		path = strings.TrimRight(path, "/")
+	}
+	if path == "" {
+		return "/"
+	}
+	return path
 }

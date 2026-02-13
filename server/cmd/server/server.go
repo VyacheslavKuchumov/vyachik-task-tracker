@@ -1,6 +1,7 @@
 package server
 
 import (
+	"VyacheslavKuchumov/test-backend/service/auth"
 	"VyacheslavKuchumov/test-backend/service/tracker"
 	"VyacheslavKuchumov/test-backend/service/user"
 	"database/sql"
@@ -25,21 +26,33 @@ func NewServer(addr string, db *sql.DB) *Server {
 }
 
 func (s *Server) Run() error {
+	log.Println("Listening on", s.addr)
+	return http.ListenAndServe(s.addr, s.router())
+}
+
+func (s *Server) router() http.Handler {
 	r := chi.NewRouter()
 	r.Use(middleware.Logger)
-	r.Get("/swagger/*", httpSwagger.Handler())
 
 	userStore := user.NewStore(s.db)
 	userHandler := user.NewHandler(userStore)
 
 	trackerStore := tracker.NewStore(s.db)
 	trackerHandler := tracker.NewHandler(trackerStore)
+	authMiddleware := auth.JWTAuthMiddleware(userStore)
+	apiAuthMiddleware := auth.JWTAuthMiddlewareWithExclusions(
+		userStore,
+		"/api/v1/login",
+		"/api/v1/register",
+	)
+
+	r.With(authMiddleware).Handle("/swagger/*", httpSwagger.Handler())
 
 	r.Route("/api/v1", func(api chi.Router) {
+		api.Use(apiAuthMiddleware)
 		user.RegisterRoutes(api, userHandler)
-		tracker.RegisterRoutes(api, trackerHandler, userStore)
+		tracker.RegisterRoutes(api, trackerHandler)
 	})
 
-	log.Println("Listening on", s.addr)
-	return http.ListenAndServe(s.addr, r)
+	return r
 }

@@ -66,6 +66,24 @@ func TestTrackerHandlers(t *testing.T) {
 		}
 	})
 
+	t.Run("update goal validates goal path param", func(t *testing.T) {
+		payload := types.CreateGoalPayload{
+			Title:       "Valid title",
+			Description: "Valid description",
+		}
+		body, _ := json.Marshal(payload)
+		req := newRequestWithUser(http.MethodPut, "/api/v1/goals/wrong", body, 2)
+		rr := httptest.NewRecorder()
+		rctx := chi.NewRouteContext()
+		rctx.URLParams.Add("goalID", "wrong")
+		req = req.WithContext(context.WithValue(req.Context(), chi.RouteCtxKey, rctx))
+
+		handler.HandleUpdateGoal(rr, req)
+		if rr.Code != http.StatusBadRequest {
+			t.Fatalf("expected %d, got %d", http.StatusBadRequest, rr.Code)
+		}
+	})
+
 	t.Run("assign task maps forbidden error", func(t *testing.T) {
 		store.assignErr = ErrForbidden
 		defer func() { store.assignErr = nil }()
@@ -84,6 +102,22 @@ func TestTrackerHandlers(t *testing.T) {
 		}
 	})
 
+	t.Run("delete task maps forbidden error", func(t *testing.T) {
+		store.deleteErr = ErrForbidden
+		defer func() { store.deleteErr = nil }()
+
+		req := newRequestWithUser(http.MethodDelete, "/api/v1/tasks/10", nil, 2)
+		rr := httptest.NewRecorder()
+		rctx := chi.NewRouteContext()
+		rctx.URLParams.Add("taskID", "10")
+		req = req.WithContext(context.WithValue(req.Context(), chi.RouteCtxKey, rctx))
+
+		handler.HandleDeleteTask(rr, req)
+		if rr.Code != http.StatusForbidden {
+			t.Fatalf("expected %d, got %d", http.StatusForbidden, rr.Code)
+		}
+	})
+
 	t.Run("assigned tasks returns ok", func(t *testing.T) {
 		req := newRequestWithUser(http.MethodGet, "/api/v1/tasks/assigned", nil, 4)
 		rr := httptest.NewRecorder()
@@ -97,6 +131,7 @@ func TestTrackerHandlers(t *testing.T) {
 
 type mockGoalTaskStore struct {
 	assignErr error
+	deleteErr error
 }
 
 func (m *mockGoalTaskStore) CreateGoal(ownerID int, payload types.CreateGoalPayload) (*types.Goal, error) {
@@ -134,6 +169,10 @@ func (m *mockGoalTaskStore) UpdateGoal(goalID, ownerID int, payload types.Create
 	}, nil
 }
 
+func (m *mockGoalTaskStore) DeleteGoal(goalID, ownerID int) error {
+	return m.deleteErr
+}
+
 func (m *mockGoalTaskStore) CreateTask(goalID, creatorID int, payload types.CreateTaskPayload) (*types.Task, error) {
 	return &types.Task{
 		ID:          1,
@@ -158,6 +197,10 @@ func (m *mockGoalTaskStore) UpdateTask(taskID, requesterID int, payload types.Up
 		CreatedBy:   requesterID,
 		CreatedAt:   time.Now(),
 	}, nil
+}
+
+func (m *mockGoalTaskStore) DeleteTask(taskID, requesterID int) error {
+	return m.deleteErr
 }
 
 func (m *mockGoalTaskStore) AssignTask(taskID, requesterID int, payload types.AssignTaskPayload) (*types.Task, error) {

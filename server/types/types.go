@@ -11,9 +11,11 @@ type UserStore interface {
 type GoalTaskStore interface {
 	CreateGoal(ownerID int, payload CreateGoalPayload) (*Goal, error)
 	UpdateGoal(goalID, ownerID int, payload CreateGoalPayload) (*Goal, error)
+	DeleteGoal(goalID, ownerID int) error
 	GetGoalsByOwner(ownerID int) ([]*GoalWithTasks, error)
 	CreateTask(goalID, creatorID int, payload CreateTaskPayload) (*Task, error)
 	UpdateTask(taskID, requesterID int, payload UpdateTaskPayload) (*Task, error)
+	DeleteTask(taskID, requesterID int) error
 	AssignTask(taskID, requesterID int, payload AssignTaskPayload) (*Task, error)
 	GetAssignedTasks(userID int) ([]*Task, error)
 	ListUsers() ([]*UserLookup, error)

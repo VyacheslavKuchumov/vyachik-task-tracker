@@ -2,11 +2,15 @@
 
 Base URL: `http://localhost:8000/api/v1`
 
-Swagger UI: `http://localhost:8000/swagger/index.html`
+Swagger UI (requires auth): `http://localhost:8000/swagger/index.html`
 
 ## Authentication
 
 Protected endpoints require a valid JWT.
+Only these endpoints are public:
+
+- `POST /register`
+- `POST /login`
 
 Supported by backend:
 
@@ -106,6 +110,27 @@ Validation:
 - `title` length `3..255`
 - `description` length `3..2000`
 
+### `PUT /goals/{goalID}` (protected)
+
+Updates goal title and description. Only goal owner can update.
+
+Request body:
+
+```json
+{
+  "title": "Updated goal title",
+  "description": "Updated goal description"
+}
+```
+
+Success: `200 OK`
+
+### `DELETE /goals/{goalID}` (protected)
+
+Deletes a goal owned by requester (and nested tasks via cascade).
+
+Success: `204 No Content`
+
 ## Tasks Endpoints
 
 ### `POST /goals/{goalID}/tasks` (protected)
@@ -131,6 +156,24 @@ Notes:
 
 Returns tasks assigned to current user.
 
+### `PUT /tasks/{taskID}` (protected)
+
+Updates task fields. Goal owner permission required.
+
+Request body:
+
+```json
+{
+  "goalId": 1,
+  "title": "Updated task title",
+  "description": "Updated task description",
+  "status": "in_progress",
+  "assigneeId": 2
+}
+```
+
+Success: `200 OK`
+
 ### `PUT /tasks/{taskID}/assign` (protected)
 
 Assigns or unassigns task. Only goal owner can assign.
@@ -150,6 +193,12 @@ To unassign, send:
   "assigneeId": null
 }
 ```
+
+### `DELETE /tasks/{taskID}` (protected)
+
+Deletes task under a goal owned by requester.
+
+Success: `204 No Content`
 
 ## Error Shape
 

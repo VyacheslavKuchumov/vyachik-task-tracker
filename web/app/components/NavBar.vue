@@ -16,8 +16,11 @@
         </UBadge>
 
         <template v-if="auth.isAuthenticated">
-          <UButton to="/" color="neutral" variant="soft" icon="i-lucide-layout-dashboard">
-            Dashboard
+          <UButton to="/" color="neutral" variant="soft" icon="i-lucide-house">
+            Home
+          </UButton>
+          <UButton to="/goals" color="neutral" variant="soft" icon="i-lucide-folder-kanban">
+            Goals
           </UButton>
           <UButton color="error" variant="soft" icon="i-lucide-log-out" @click="auth.logout()">
             Logout

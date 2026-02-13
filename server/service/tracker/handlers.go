@@ -61,6 +61,95 @@ func (h *Handler) HandleCreateGoal(w http.ResponseWriter, r *http.Request) {
 	utils.WriteJSON(w, http.StatusCreated, goal)
 }
 
+// HandleUpdateGoal godoc
+// @Summary Update goal
+// @Description Update a goal owned by the authenticated user
+// @Tags goals
+// @Accept json
+// @Produce json
+// @Security BearerAuth
+// @Param goalID path int true "Goal ID"
+// @Param payload body types.CreateGoalPayload true "Goal payload"
+// @Success 200 {object} types.Goal
+// @Failure 400 {object} types.ErrorResponse
+// @Failure 403 {object} types.ErrorResponse
+// @Failure 500 {object} types.ErrorResponse
+// @Router /goals/{goalID} [put]
+func (h *Handler) HandleUpdateGoal(w http.ResponseWriter, r *http.Request) {
+	ownerID := auth.GetUserIDFromContext(r.Context())
+	if ownerID <= 0 {
+		utils.WriteError(w, http.StatusForbidden, fmt.Errorf("permission denied"))
+		return
+	}
+
+	goalID, err := parsePathID(r, "goalID")
+	if err != nil {
+		utils.WriteError(w, http.StatusBadRequest, fmt.Errorf("invalid goal id"))
+		return
+	}
+
+	var payload types.CreateGoalPayload
+	if err := utils.ParseJSON(r, &payload); err != nil {
+		utils.WriteError(w, http.StatusBadRequest, err)
+		return
+	}
+
+	if err := utils.Validate.Struct(payload); err != nil {
+		errors := err.(validator.ValidationErrors)
+		utils.WriteError(w, http.StatusBadRequest, fmt.Errorf("invalid payload %v", errors))
+		return
+	}
+
+	goal, err := h.store.UpdateGoal(goalID, ownerID, payload)
+	if err != nil {
+		status := http.StatusInternalServerError
+		if err == ErrForbidden {
+			status = http.StatusForbidden
+		}
+		utils.WriteError(w, status, err)
+		return
+	}
+
+	utils.WriteJSON(w, http.StatusOK, goal)
+}
+
+// HandleDeleteGoal godoc
+// @Summary Delete goal
+// @Description Delete a goal owned by the authenticated user
+// @Tags goals
+// @Produce json
+// @Security BearerAuth
+// @Param goalID path int true "Goal ID"
+// @Success 204 {object} nil
+// @Failure 400 {object} types.ErrorResponse
+// @Failure 403 {object} types.ErrorResponse
+// @Failure 500 {object} types.ErrorResponse
+// @Router /goals/{goalID} [delete]
+func (h *Handler) HandleDeleteGoal(w http.ResponseWriter, r *http.Request) {
+	ownerID := auth.GetUserIDFromContext(r.Context())
+	if ownerID <= 0 {
+		utils.WriteError(w, http.StatusForbidden, fmt.Errorf("permission denied"))
+		return
+	}
+
+	goalID, err := parsePathID(r, "goalID")
+	if err != nil {
+		utils.WriteError(w, http.StatusBadRequest, fmt.Errorf("invalid goal id"))
+		return
+	}
+
+	if err := h.store.DeleteGoal(goalID, ownerID); err != nil {
+		status := http.StatusInternalServerError
+		if err == ErrForbidden {
+			status = http.StatusForbidden
+		}
+		utils.WriteError(w, status, err)
+		return
+	}
+
+	w.WriteHeader(http.StatusNoContent)
+}
+
 // HandleGetGoals godoc
 // @Summary Get goals
 // @Description Get all goals for the authenticated user with nested tasks
@@ -185,6 +274,95 @@ func (h *Handler) HandleAssignTask(w http.ResponseWriter, r *http.Request) {
 	utils.WriteJSON(w, http.StatusOK, task)
 }
 
+// HandleUpdateTask godoc
+// @Summary Update task
+// @Description Update a task under a goal owned by the authenticated user
+// @Tags tasks
+// @Accept json
+// @Produce json
+// @Security BearerAuth
+// @Param taskID path int true "Task ID"
+// @Param payload body types.UpdateTaskPayload true "Task update payload"
+// @Success 200 {object} types.Task
+// @Failure 400 {object} types.ErrorResponse
+// @Failure 403 {object} types.ErrorResponse
+// @Failure 500 {object} types.ErrorResponse
+// @Router /tasks/{taskID} [put]
+func (h *Handler) HandleUpdateTask(w http.ResponseWriter, r *http.Request) {
+	requesterID := auth.GetUserIDFromContext(r.Context())
+	if requesterID <= 0 {
+		utils.WriteError(w, http.StatusForbidden, fmt.Errorf("permission denied"))
+		return
+	}
+
+	taskID, err := parsePathID(r, "taskID")
+	if err != nil {
+		utils.WriteError(w, http.StatusBadRequest, fmt.Errorf("invalid task id"))
+		return
+	}
+
+	var payload types.UpdateTaskPayload
+	if err := utils.ParseJSON(r, &payload); err != nil {
+		utils.WriteError(w, http.StatusBadRequest, err)
+		return
+	}
+
+	if err := utils.Validate.Struct(payload); err != nil {
+		errors := err.(validator.ValidationErrors)
+		utils.WriteError(w, http.StatusBadRequest, fmt.Errorf("invalid payload %v", errors))
+		return
+	}
+
+	task, err := h.store.UpdateTask(taskID, requesterID, payload)
+	if err != nil {
+		status := http.StatusInternalServerError
+		if err == ErrForbidden {
+			status = http.StatusForbidden
+		}
+		utils.WriteError(w, status, err)
+		return
+	}
+
+	utils.WriteJSON(w, http.StatusOK, task)
+}
+
+// HandleDeleteTask godoc
+// @Summary Delete task
+// @Description Delete a task from a goal owned by the authenticated user
+// @Tags tasks
+// @Produce json
+// @Security BearerAuth
+// @Param taskID path int true "Task ID"
+// @Success 204 {object} nil
+// @Failure 400 {object} types.ErrorResponse
+// @Failure 403 {object} types.ErrorResponse
+// @Failure 500 {object} types.ErrorResponse
+// @Router /tasks/{taskID} [delete]
+func (h *Handler) HandleDeleteTask(w http.ResponseWriter, r *http.Request) {
+	requesterID := auth.GetUserIDFromContext(r.Context())
+	if requesterID <= 0 {
+		utils.WriteError(w, http.StatusForbidden, fmt.Errorf("permission denied"))
+		return
+	}
+
+	taskID, err := parsePathID(r, "taskID")
+	if err != nil {
+		utils.WriteError(w, http.StatusBadRequest, fmt.Errorf("invalid task id"))
+		return
+	}
+
+	if err := h.store.DeleteTask(taskID, requesterID); err != nil {
+		status := http.StatusInternalServerError
+		if err == ErrForbidden {
+			status = http.StatusForbidden
+		}
+		utils.WriteError(w, status, err)
+		return
+	}
+
+	w.WriteHeader(http.StatusNoContent)
+}
+
 // HandleGetAssignedTasks godoc
 // @Summary Get assigned tasks
 // @Description Get tasks assigned to the authenticated user
@@ -209,4 +387,13 @@ func (h *Handler) HandleGetAssignedTasks(w http.ResponseWriter, r *http.Request)
 	}
 
 	utils.WriteJSON(w, http.StatusOK, tasks)
+}
+
+func parsePathID(r *http.Request, key string) (int, error) {
+	value := chi.URLParam(r, key)
+	id, err := strconv.Atoi(value)
+	if err != nil || id <= 0 {
+		return 0, fmt.Errorf("invalid %s", key)
+	}
+	return id, nil
 }

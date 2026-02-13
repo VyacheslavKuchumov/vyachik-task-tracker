@@ -6,6 +6,11 @@ Task Tracker is a full-stack goals and tasks application:
 - Nuxt 4 frontend (`web/`)
 - PostgreSQL database
 
+Frontend views:
+
+- Home: your assigned tasks
+- Goals: goals list with nested task CRUD
+
 ## Quick Start
 
 ```bash
@@ -16,7 +21,7 @@ Open:
 
 - Frontend: `http://localhost:3000`
 - Backend API: `http://localhost:8000/api/v1`
-- Swagger UI: `http://localhost:8000/swagger/index.html`
+- Swagger UI (requires auth): `http://localhost:8000/swagger/index.html`
 
 ## Documentation
 

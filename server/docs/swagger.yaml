@@ -132,6 +132,33 @@ definitions:
       title:
         type: string
     type: object
+  types.UpdateTaskPayload:
+    properties:
+      assigneeId:
+        type: integer
+      description:
+        maxLength: 2000
+        minLength: 3
+        type: string
+      goalId:
+        minimum: 1
+        type: integer
+      status:
+        enum:
+        - todo
+        - in_progress
+        - done
+        type: string
+      title:
+        maxLength: 255
+        minLength: 3
+        type: string
+    required:
+    - description
+    - goalId
+    - status
+    - title
+    type: object
 info:
   contact: {}
   description: REST API for task tracking with goals and assignments
@@ -196,6 +223,77 @@ paths:
       security:
       - BearerAuth: []
       summary: Create goal
+      tags:
+      - goals
+  /goals/{goalID}:
+    delete:
+      description: Delete a goal owned by the authenticated user
+      parameters:
+      - description: Goal ID
+        in: path
+        name: goalID
+        required: true
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "204":
+          description: No Content
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/types.ErrorResponse'
+        "403":
+          description: Forbidden
+          schema:
+            $ref: '#/definitions/types.ErrorResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/types.ErrorResponse'
+      security:
+      - BearerAuth: []
+      summary: Delete goal
+      tags:
+      - goals
+    put:
+      consumes:
+      - application/json
+      description: Update a goal owned by the authenticated user
+      parameters:
+      - description: Goal ID
+        in: path
+        name: goalID
+        required: true
+        type: integer
+      - description: Goal payload
+        in: body
+        name: payload
+        required: true
+        schema:
+          $ref: '#/definitions/types.CreateGoalPayload'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/types.Goal'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/types.ErrorResponse'
+        "403":
+          description: Forbidden
+          schema:
+            $ref: '#/definitions/types.ErrorResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/types.ErrorResponse'
+      security:
+      - BearerAuth: []
+      summary: Update goal
       tags:
       - goals
   /goals/{goalID}/tasks:
@@ -292,6 +390,77 @@ paths:
       summary: Register
       tags:
       - auth
+  /tasks/{taskID}:
+    delete:
+      description: Delete a task from a goal owned by the authenticated user
+      parameters:
+      - description: Task ID
+        in: path
+        name: taskID
+        required: true
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "204":
+          description: No Content
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/types.ErrorResponse'
+        "403":
+          description: Forbidden
+          schema:
+            $ref: '#/definitions/types.ErrorResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/types.ErrorResponse'
+      security:
+      - BearerAuth: []
+      summary: Delete task
+      tags:
+      - tasks
+    put:
+      consumes:
+      - application/json
+      description: Update a task under a goal owned by the authenticated user
+      parameters:
+      - description: Task ID
+        in: path
+        name: taskID
+        required: true
+        type: integer
+      - description: Task update payload
+        in: body
+        name: payload
+        required: true
+        schema:
+          $ref: '#/definitions/types.UpdateTaskPayload'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/types.Task'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/types.ErrorResponse'
+        "403":
+          description: Forbidden
+          schema:
+            $ref: '#/definitions/types.ErrorResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/types.ErrorResponse'
+      security:
+      - BearerAuth: []
+      summary: Update task
+      tags:
+      - tasks
   /tasks/{taskID}/assign:
     put:
       consumes:

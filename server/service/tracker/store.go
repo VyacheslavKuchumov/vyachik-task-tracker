@@ -53,6 +53,27 @@ func (s *Store) UpdateGoal(goalID, ownerID int, payload types.CreateGoalPayload)
 	return goal, nil
 }
 
+func (s *Store) DeleteGoal(goalID, ownerID int) error {
+	result, err := s.db.Exec(
+		`DELETE FROM goals
+		 WHERE id = $1 AND owner_id = $2`,
+		goalID,
+		ownerID,
+	)
+	if err != nil {
+		return err
+	}
+
+	rowsAffected, err := result.RowsAffected()
+	if err != nil {
+		return err
+	}
+	if rowsAffected == 0 {
+		return ErrForbidden
+	}
+	return nil
+}
+
 func (s *Store) GetGoalsByOwner(ownerID int) ([]*types.GoalWithTasks, error) {
 	rows, err := s.db.Query(
 		`SELECT
@@ -219,6 +240,30 @@ func (s *Store) UpdateTask(taskID, requesterID int, payload types.UpdateTaskPayl
 		return nil, err
 	}
 	return task, nil
+}
+
+func (s *Store) DeleteTask(taskID, requesterID int) error {
+	result, err := s.db.Exec(
+		`DELETE FROM tasks t
+		 USING goals g
+		 WHERE t.goal_id = g.id
+		   AND t.id = $1
+		   AND g.owner_id = $2`,
+		taskID,
+		requesterID,
+	)
+	if err != nil {
+		return err
+	}
+
+	rowsAffected, err := result.RowsAffected()
+	if err != nil {
+		return err
+	}
+	if rowsAffected == 0 {
+		return ErrForbidden
+	}
+	return nil
 }
 
 func (s *Store) AssignTask(taskID, requesterID int, payload types.AssignTaskPayload) (*types.Task, error) {

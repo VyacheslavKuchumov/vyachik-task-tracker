@@ -1,6 +1,6 @@
 <template>
   <section class="space-y-6">
-    <div class="grid grid-cols-1 gap-4 sm:grid-cols-3">
+    <div class="grid grid-cols-1 gap-4 sm:grid-cols-2">
       <UCard>
         <div class="space-y-1">
           <p class="text-sm text-muted">Goals</p>
@@ -14,194 +14,154 @@
           <p class="text-2xl font-semibold">{{ tasksInGoals }}</p>
         </div>
       </UCard>
-
-      <UCard>
-        <div class="space-y-1">
-          <p class="text-sm text-muted">Assigned To You</p>
-          <p class="text-2xl font-semibold">{{ tracker.assignedTasks.length }}</p>
-        </div>
-      </UCard>
     </div>
 
-    <div class="grid grid-cols-1 gap-4 xl:grid-cols-3">
-      <UCard class="xl:col-span-2">
-        <template #header>
-          <div class="flex flex-wrap items-center justify-between gap-3">
-            <div>
-              <h2 class="text-lg font-semibold">Goals Workspace</h2>
-              <p class="text-sm text-muted">Create goals and nested tasks.</p>
-            </div>
-
-            <div class="flex items-center gap-2">
-              <UButton
-                icon="i-lucide-refresh-cw"
-                color="neutral"
-                variant="soft"
-                :loading="tracker.loadingGoals || tracker.loadingAssigned"
-                @click="loadDashboard"
-              >
-                Refresh
-              </UButton>
-
-              <UButton icon="i-lucide-plus" color="primary" @click="createGoalOpen = true">
-                New Goal
-              </UButton>
-            </div>
+    <UCard>
+      <template #header>
+        <div class="flex flex-wrap items-center justify-between gap-3">
+          <div>
+            <h2 class="text-lg font-semibold">Goals</h2>
+            <p class="text-sm text-muted">Manage goals and tasks with full CRUD actions.</p>
           </div>
-        </template>
 
-        <UProgress v-if="tracker.loadingGoals" />
+          <div class="flex items-center gap-2">
+            <UButton
+              icon="i-lucide-refresh-cw"
+              color="neutral"
+              variant="soft"
+              :loading="tracker.loadingGoals"
+              @click="loadGoals"
+            >
+              Refresh
+            </UButton>
 
-        <UAlert
-          v-else-if="tracker.goals.length === 0"
-          icon="i-lucide-folder-open"
-          color="neutral"
-          variant="soft"
-          title="No goals yet"
-          description="Create your first goal to get started."
-        />
-
-        <div v-else class="space-y-4">
-          <UCard v-for="goal in tracker.goals" :key="goal.id" variant="soft">
-            <template #header>
-              <div class="flex flex-wrap items-start justify-between gap-2">
-                <div class="space-y-1">
-                  <h3 class="font-semibold">{{ goal.title }}</h3>
-                  <p class="text-sm text-muted">{{ goal.description }}</p>
-                </div>
-                <UBadge color="neutral" variant="subtle">#{{ goal.id }}</UBadge>
-              </div>
-            </template>
-
-            <div class="space-y-3">
-              <UAlert
-                v-if="(goal.tasks || []).length === 0"
-                color="neutral"
-                variant="outline"
-                icon="i-lucide-list-todo"
-                title="No tasks in this goal"
-              />
-
-              <UCard v-for="task in goal.tasks" :key="task.id" variant="outline">
-                <div class="flex flex-wrap items-start justify-between gap-3">
-                  <div class="space-y-1">
-                    <p class="font-medium">{{ task.title }}</p>
-                    <p class="text-sm text-muted">{{ task.description }}</p>
-                  </div>
-
-                  <UBadge :color="statusColor(task.status)" variant="soft">
-                    {{ statusLabel(task.status) }}
-                  </UBadge>
-                </div>
-
-                <div class="mt-3 flex flex-wrap gap-3 text-xs text-muted">
-                  <span>Assignee: {{ task.assigneeName || (task.assigneeId ? `#${task.assigneeId}` : 'unassigned') }}</span>
-                  <span>Creator: {{ task.createdByName || `#${task.createdBy}` }}</span>
-                </div>
-
-                <UForm
-                  :state="assignState(task.id)"
-                  class="mt-4 flex flex-wrap items-end gap-2"
-                  @submit="(event) => onAssignTask(task.id, event)"
-                >
-                  <UFormField label="Assignee ID" name="assigneeId" class="min-w-[140px]">
-                    <UInput v-model="assignState(task.id).assigneeId" type="number" min="1" placeholder="e.g. 2" />
-                  </UFormField>
-
-                  <UButton type="button" color="neutral" variant="soft" @click="setAssignToMe(task.id)">
-                    Assign To Me
-                  </UButton>
-
-                  <UButton type="submit" color="primary" variant="soft" :loading="assigningTaskId === task.id">
-                    Save Assignee
-                  </UButton>
-                </UForm>
-              </UCard>
-            </div>
-
-            <template #footer>
-              <UForm
-                :schema="taskSchema"
-                :state="taskDraft(goal.id)"
-                class="grid grid-cols-1 gap-3 md:grid-cols-2"
-                @submit="(event) => onCreateTask(goal.id, event)"
-              >
-                <UFormField label="Task title" name="title" required>
-                  <UInput v-model="taskDraft(goal.id).title" placeholder="Define implementation" class="w-full" />
-                </UFormField>
-
-                <UFormField label="Assignee ID (optional)" name="assigneeId">
-                  <UInput v-model="taskDraft(goal.id).assigneeId" type="number" min="1" placeholder="e.g. 2" class="w-full" />
-                </UFormField>
-
-                <UFormField label="Task description" name="description" required class="md:col-span-2">
-                  <UTextarea v-model="taskDraft(goal.id).description" :rows="2" placeholder="API + UI + tests" class="w-full" />
-                </UFormField>
-
-                <div class="md:col-span-2">
-                  <UButton type="submit" :loading="creatingTaskGoalId === goal.id">
-                    Add Task
-                  </UButton>
-                </div>
-              </UForm>
-            </template>
-          </UCard>
+            <UButton icon="i-lucide-plus" color="primary" @click="createGoalOpen = true">
+              New Goal
+            </UButton>
+          </div>
         </div>
-      </UCard>
+      </template>
 
-      <UCard>
-        <template #header>
-          <div class="flex items-center justify-between gap-3">
-            <div>
-              <h2 class="text-lg font-semibold">Assigned To Me</h2>
-              <p class="text-sm text-muted">Tasks where your user ID is assignee.</p>
-            </div>
-            <UBadge color="primary" variant="subtle" size="lg">{{ tracker.assignedTasks.length }}</UBadge>
-          </div>
-        </template>
+      <UProgress v-if="tracker.loadingGoals" />
 
-        <UProgress v-if="tracker.loadingAssigned" />
+      <UAlert
+        v-else-if="tracker.goals.length === 0"
+        icon="i-lucide-folder-open"
+        color="neutral"
+        variant="soft"
+        title="No goals yet"
+        description="Create your first goal to get started."
+      />
 
-        <UAlert
-          v-else-if="tracker.assignedTasks.length === 0"
-          icon="i-lucide-user-round-check"
-          color="neutral"
-          variant="soft"
-          title="Nothing assigned yet"
-        />
-
-        <div v-else class="space-y-3">
-          <UCard v-for="task in tracker.assignedTasks" :key="task.id" variant="soft">
-            <div class="flex items-start justify-between gap-3">
+      <div v-else class="space-y-4">
+        <UCard v-for="goal in tracker.goals" :key="goal.id" variant="soft">
+          <template #header>
+            <div class="flex flex-wrap items-start justify-between gap-3">
               <div class="space-y-1">
-                <p class="font-medium">{{ task.title }}</p>
-                <p class="text-sm text-muted">{{ task.description }}</p>
+                <h3 class="font-semibold">{{ goal.title }}</h3>
+                <p class="text-sm text-muted">{{ goal.description }}</p>
               </div>
 
-              <UBadge :color="statusColor(task.status)" variant="soft">
-                {{ statusLabel(task.status) }}
-              </UBadge>
+              <div class="flex items-center gap-2">
+                <UBadge color="neutral" variant="subtle">#{{ goal.id }}</UBadge>
+                <UButton icon="i-lucide-pencil" color="neutral" variant="soft" @click="openEditGoal(goal)">
+                  Edit
+                </UButton>
+                <UButton
+                  icon="i-lucide-trash-2"
+                  color="error"
+                  variant="soft"
+                  :loading="deletingGoalId === goal.id"
+                  @click="onDeleteGoal(goal.id)"
+                >
+                  Delete
+                </UButton>
+              </div>
             </div>
+          </template>
 
-            <div class="mt-3 flex flex-wrap gap-3 text-xs text-muted">
-              <span>Goal: {{ task.goalTitle || `#${task.goalId}` }}</span>
-              <span>By: {{ task.createdByName || `#${task.createdBy}` }}</span>
-            </div>
-          </UCard>
-        </div>
-      </UCard>
-    </div>
+          <div class="space-y-3">
+            <UAlert
+              v-if="(goal.tasks || []).length === 0"
+              color="neutral"
+              variant="outline"
+              icon="i-lucide-list-todo"
+              title="No tasks in this goal"
+            />
+
+            <UCard v-for="task in goal.tasks" :key="task.id" variant="outline">
+              <div class="flex flex-wrap items-start justify-between gap-3">
+                <div class="space-y-1">
+                  <p class="font-medium">{{ task.title }}</p>
+                  <p class="text-sm text-muted">{{ task.description }}</p>
+                </div>
+
+                <div class="flex items-center gap-2">
+                  <UBadge :color="statusColor(task.status)" variant="soft">
+                    {{ task.status || 'todo' }}
+                  </UBadge>
+                  <UButton icon="i-lucide-pencil" color="neutral" variant="soft" @click="openEditTask(goal.id, task)">
+                    Edit
+                  </UButton>
+                  <UButton
+                    icon="i-lucide-trash-2"
+                    color="error"
+                    variant="soft"
+                    :loading="deletingTaskId === task.id"
+                    @click="onDeleteTask(task.id)"
+                  >
+                    Delete
+                  </UButton>
+                </div>
+              </div>
+
+              <div class="mt-3 flex flex-wrap gap-3 text-xs text-muted">
+                <span>Assignee: {{ task.assigneeName || (task.assigneeId ? `#${task.assigneeId}` : 'unassigned') }}</span>
+                <span>Creator: {{ task.createdByName || `#${task.createdBy}` }}</span>
+              </div>
+            </UCard>
+          </div>
+
+          <template #footer>
+            <UForm
+              :schema="createTaskSchema"
+              :state="taskDraft(goal.id)"
+              class="grid grid-cols-1 gap-3 md:grid-cols-2"
+              @submit="(event) => onCreateTask(goal.id, event)"
+            >
+              <UFormField label="Task title" name="title" required>
+                <UInput v-model="taskDraft(goal.id).title" placeholder="Define implementation" class="w-full" />
+              </UFormField>
+
+              <UFormField label="Assignee ID (optional)" name="assigneeId">
+                <UInput v-model="taskDraft(goal.id).assigneeId" type="number" min="1" placeholder="e.g. 2" class="w-full" />
+              </UFormField>
+
+              <UFormField label="Task description" name="description" required class="md:col-span-2">
+                <UTextarea v-model="taskDraft(goal.id).description" :rows="2" placeholder="API + UI + tests" class="w-full" />
+              </UFormField>
+
+              <div class="md:col-span-2">
+                <UButton type="submit" :loading="creatingTaskGoalId === goal.id">
+                  Add Task
+                </UButton>
+              </div>
+            </UForm>
+          </template>
+        </UCard>
+      </div>
+    </UCard>
 
     <UModal v-model:open="createGoalOpen" title="Create Goal">
       <template #body>
-        <UForm :schema="goalSchema" :state="goalState" class="space-y-4" @submit="onCreateGoal">
+        <UForm :schema="goalSchema" :state="createGoalState" class="space-y-4" @submit="onCreateGoal">
           <UFormField label="Goal title" name="title" required>
-            <UInput v-model="goalState.title" class="w-full" placeholder="Ship task tracker MVP" />
+            <UInput v-model="createGoalState.title" class="w-full" placeholder="Ship task tracker MVP" />
           </UFormField>
 
           <UFormField label="Description" name="description" required>
             <UTextarea
-              v-model="goalState.description"
+              v-model="createGoalState.description"
               :rows="4"
               class="w-full"
               placeholder="Clear objective and expected outcome"
@@ -219,6 +179,60 @@
         </UForm>
       </template>
     </UModal>
+
+    <UModal v-model:open="editGoalOpen" title="Edit Goal">
+      <template #body>
+        <UForm :schema="goalSchema" :state="editGoalState" class="space-y-4" @submit="onUpdateGoal">
+          <UFormField label="Goal title" name="title" required>
+            <UInput v-model="editGoalState.title" class="w-full" />
+          </UFormField>
+
+          <UFormField label="Description" name="description" required>
+            <UTextarea v-model="editGoalState.description" :rows="4" class="w-full" />
+          </UFormField>
+
+          <div class="flex justify-end gap-2">
+            <UButton type="button" color="neutral" variant="soft" @click="editGoalOpen = false">
+              Cancel
+            </UButton>
+            <UButton type="submit" color="primary" :loading="updatingGoal">
+              Save
+            </UButton>
+          </div>
+        </UForm>
+      </template>
+    </UModal>
+
+    <UModal v-model:open="editTaskOpen" title="Edit Task">
+      <template #body>
+        <UForm :schema="updateTaskSchema" :state="editTaskState" class="space-y-4" @submit="onUpdateTask">
+          <UFormField label="Task title" name="title" required>
+            <UInput v-model="editTaskState.title" class="w-full" />
+          </UFormField>
+
+          <UFormField label="Description" name="description" required>
+            <UTextarea v-model="editTaskState.description" :rows="3" class="w-full" />
+          </UFormField>
+
+          <UFormField label="Status" name="status" required>
+            <UInput v-model="editTaskState.status" class="w-full" placeholder="todo | in_progress | done" />
+          </UFormField>
+
+          <UFormField label="Assignee ID (optional)" name="assigneeId">
+            <UInput v-model="editTaskState.assigneeId" type="number" min="1" class="w-full" />
+          </UFormField>
+
+          <div class="flex justify-end gap-2">
+            <UButton type="button" color="neutral" variant="soft" @click="editTaskOpen = false">
+              Cancel
+            </UButton>
+            <UButton type="submit" color="primary" :loading="updatingTask">
+              Save
+            </UButton>
+          </div>
+        </UForm>
+      </template>
+    </UModal>
   </section>
 </template>
 
@@ -226,45 +240,87 @@
 import * as v from 'valibot'
 import type { FormSubmitEvent } from '@nuxt/ui'
 
+type GoalEntity = {
+  id: number
+  title: string
+  description: string
+  tasks?: TaskEntity[]
+}
+
+type TaskEntity = {
+  id: number
+  goalId: number
+  title: string
+  description: string
+  status: string
+  assigneeId?: number | null
+  assigneeName?: string
+  createdBy: number
+  createdByName?: string
+}
+
 const auth = useAuthStore()
 const tracker = useTrackerStore()
 const toast = useToast()
 
 const createGoalOpen = ref(false)
+const editGoalOpen = ref(false)
+const editTaskOpen = ref(false)
 
 const creatingGoal = ref(false)
+const updatingGoal = ref(false)
+const deletingGoalId = ref<number | null>(null)
+
 const creatingTaskGoalId = ref<number | null>(null)
-const assigningTaskId = ref<number | null>(null)
+const updatingTask = ref(false)
+const deletingTaskId = ref<number | null>(null)
 
 const goalSchema = v.object({
   title: v.pipe(v.string(), v.minLength(3, 'Goal title should be at least 3 characters')),
   description: v.pipe(v.string(), v.minLength(3, 'Description should be at least 3 characters'))
 })
 
-type GoalSchema = v.InferOutput<typeof goalSchema>
-
-const taskSchema = v.object({
+const createTaskSchema = v.object({
   title: v.pipe(v.string(), v.minLength(3, 'Task title should be at least 3 characters')),
   description: v.pipe(v.string(), v.minLength(3, 'Description should be at least 3 characters')),
   assigneeId: v.optional(v.string())
 })
 
-type TaskSchema = v.InferOutput<typeof taskSchema>
+const updateTaskSchema = v.object({
+  title: v.pipe(v.string(), v.minLength(3, 'Task title should be at least 3 characters')),
+  description: v.pipe(v.string(), v.minLength(3, 'Description should be at least 3 characters')),
+  status: v.pipe(v.string(), v.minLength(1, 'Status is required')),
+  assigneeId: v.optional(v.string())
+})
 
-type AssignSchema = {
-  assigneeId?: string
-}
+type GoalSchema = v.InferOutput<typeof goalSchema>
+type CreateTaskSchema = v.InferOutput<typeof createTaskSchema>
+type UpdateTaskSchema = v.InferOutput<typeof updateTaskSchema>
 
-const goalState = reactive<GoalSchema>({
+const createGoalState = reactive<GoalSchema>({
   title: '',
   description: ''
 })
 
-const taskDrafts = reactive<Record<string, TaskSchema>>({})
-const assignDrafts = reactive<Record<number, AssignSchema>>({})
+const editGoalState = reactive<{ id: number | null; title: string; description: string }>({
+  id: null,
+  title: '',
+  description: ''
+})
+
+const editTaskState = reactive<{ id: number | null; goalId: number | null; title: string; description: string; status: string; assigneeId: string }>({
+  id: null,
+  goalId: null,
+  title: '',
+  description: '',
+  status: 'todo',
+  assigneeId: ''
+})
+
+const taskDrafts = reactive<Record<string, CreateTaskSchema>>({})
 
 const tasksInGoals = computed(() => {
-  return tracker.goals.reduce((sum, goal) => sum + (goal.tasks?.length || 0), 0)
+  return tracker.goals.reduce((sum: number, goal: GoalEntity) => sum + ((goal.tasks || []).length || 0), 0)
 })
 
 function taskDraft(goalId: number) {
@@ -281,14 +337,6 @@ function taskDraft(goalId: number) {
   return taskDrafts[key]
 }
 
-function assignState(taskId: number) {
-  if (!assignDrafts[taskId]) {
-    assignDrafts[taskId] = { assigneeId: '' }
-  }
-
-  return assignDrafts[taskId]
-}
-
 function parseOptionalPositiveInt(value?: string) {
   if (value === '' || value === null || value === undefined) return null
 
@@ -300,15 +348,24 @@ function parseOptionalPositiveInt(value?: string) {
   return parsed
 }
 
+function parseTaskStatus(status: string) {
+  const normalized = (status || '').trim()
+  const allowed = ['todo', 'in_progress', 'done']
+  if (!allowed.includes(normalized)) {
+    throw new Error('Status must be one of: todo, in_progress, done')
+  }
+  return normalized
+}
+
 function statusColor(status: string) {
   if (status === 'done') return 'success'
   if (status === 'in_progress') return 'warning'
   return 'neutral'
 }
 
-function statusLabel(status: string) {
-  if (status === 'in_progress') return 'in progress'
-  return status || 'todo'
+function confirmAction(message: string) {
+  if (typeof window === 'undefined') return false
+  return window.confirm(message)
 }
 
 async function withErrorToast(action: () => Promise<void>) {
@@ -328,9 +385,9 @@ async function withErrorToast(action: () => Promise<void>) {
   }
 }
 
-async function loadDashboard() {
+async function loadGoals() {
   await withErrorToast(async () => {
-    await tracker.refresh(auth.authHeader())
+    await tracker.fetchGoals(auth.authHeader())
   })
 }
 
@@ -346,20 +403,59 @@ async function onCreateGoal(event: FormSubmitEvent<GoalSchema>) {
       auth.authHeader()
     )
 
-    goalState.title = ''
-    goalState.description = ''
+    createGoalState.title = ''
+    createGoalState.description = ''
     createGoalOpen.value = false
 
-    toast.add({
-      title: 'Goal created',
-      color: 'success'
-    })
+    toast.add({ title: 'Goal created', color: 'success' })
   })
 
   creatingGoal.value = false
 }
 
-async function onCreateTask(goalId: number, event: FormSubmitEvent<TaskSchema>) {
+function openEditGoal(goal: GoalEntity) {
+  editGoalState.id = goal.id
+  editGoalState.title = goal.title
+  editGoalState.description = goal.description
+  editGoalOpen.value = true
+}
+
+async function onUpdateGoal(event: FormSubmitEvent<GoalSchema>) {
+  if (!editGoalState.id) return
+
+  updatingGoal.value = true
+
+  await withErrorToast(async () => {
+    await tracker.updateGoal(
+      editGoalState.id as number,
+      {
+        title: event.data.title.trim(),
+        description: event.data.description.trim()
+      },
+      auth.authHeader()
+    )
+
+    editGoalOpen.value = false
+    toast.add({ title: 'Goal updated', color: 'success' })
+  })
+
+  updatingGoal.value = false
+}
+
+async function onDeleteGoal(goalId: number) {
+  if (!confirmAction('Delete this goal and all nested tasks?')) return
+
+  deletingGoalId.value = goalId
+
+  await withErrorToast(async () => {
+    await tracker.deleteGoal(goalId, auth.authHeader())
+    toast.add({ title: 'Goal deleted', color: 'success' })
+  })
+
+  deletingGoalId.value = null
+}
+
+async function onCreateTask(goalId: number, event: FormSubmitEvent<CreateTaskSchema>) {
   creatingTaskGoalId.value = goalId
 
   await withErrorToast(async () => {
@@ -379,41 +475,65 @@ async function onCreateTask(goalId: number, event: FormSubmitEvent<TaskSchema>) 
     taskDraft(goalId).description = ''
     taskDraft(goalId).assigneeId = ''
 
-    await tracker.fetchAssignedTasks(auth.authHeader())
-
-    toast.add({
-      title: 'Task created',
-      color: 'success'
-    })
+    toast.add({ title: 'Task created', color: 'success' })
   })
 
   creatingTaskGoalId.value = null
 }
 
-function setAssignToMe(taskId: number) {
-  if (!auth.userId) return
-  assignState(taskId).assigneeId = String(auth.userId)
+function openEditTask(goalId: number, task: TaskEntity) {
+  editTaskState.id = task.id
+  editTaskState.goalId = goalId
+  editTaskState.title = task.title
+  editTaskState.description = task.description
+  editTaskState.status = task.status || 'todo'
+  editTaskState.assigneeId = task.assigneeId ? String(task.assigneeId) : ''
+  editTaskOpen.value = true
 }
 
-async function onAssignTask(taskId: number, event: FormSubmitEvent<AssignSchema>) {
-  assigningTaskId.value = taskId
+async function onUpdateTask(event: FormSubmitEvent<UpdateTaskSchema>) {
+  if (!editTaskState.id || !editTaskState.goalId) return
+
+  updatingTask.value = true
 
   await withErrorToast(async () => {
     const assigneeId = parseOptionalPositiveInt(event.data.assigneeId)
+    const status = parseTaskStatus(event.data.status)
 
-    await tracker.assignTask(taskId, assigneeId, auth.authHeader())
-    await tracker.refresh(auth.authHeader())
+    await tracker.updateTask(
+      editTaskState.id as number,
+      {
+        goalId: editTaskState.goalId,
+        title: event.data.title.trim(),
+        description: event.data.description.trim(),
+        status,
+        assigneeId
+      },
+      auth.authHeader()
+    )
 
-    toast.add({
-      title: 'Assignee updated',
-      color: 'success'
-    })
+    editTaskOpen.value = false
+    await tracker.fetchAssignedTasks(auth.authHeader())
+    toast.add({ title: 'Task updated', color: 'success' })
   })
 
-  assigningTaskId.value = null
+  updatingTask.value = false
+}
+
+async function onDeleteTask(taskId: number) {
+  if (!confirmAction('Delete this task?')) return
+
+  deletingTaskId.value = taskId
+
+  await withErrorToast(async () => {
+    await tracker.deleteTask(taskId, auth.authHeader())
+    toast.add({ title: 'Task deleted', color: 'success' })
+  })
+
+  deletingTaskId.value = null
 }
 
 onMounted(async () => {
-  await loadDashboard()
+  await loadGoals()
 })
 </script>

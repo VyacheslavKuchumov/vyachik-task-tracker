@@ -35,6 +35,24 @@ export const useTrackerStore = defineStore('tracker', {
       ])
     },
 
+    upsertTaskInGoals(updatedTask) {
+      for (const goal of this.goals) {
+        goal.tasks = (goal.tasks || []).filter((task) => task.id !== updatedTask.id)
+      }
+
+      const targetGoal = this.goals.find((goal) => goal.id === updatedTask.goalId)
+      if (!targetGoal) return
+
+      targetGoal.tasks = [...(targetGoal.tasks || []), updatedTask]
+    },
+
+    removeTaskFromGoals(taskId) {
+      for (const goal of this.goals) {
+        goal.tasks = (goal.tasks || []).filter((task) => task.id !== taskId)
+      }
+      this.assignedTasks = this.assignedTasks.filter((task) => task.id !== taskId)
+    },
+
     async createGoal(payload, authHeader = {}) {
       const created = await $fetch('/api/goals', {
         method: 'POST',
@@ -46,6 +64,39 @@ export const useTrackerStore = defineStore('tracker', {
         ...this.goals
       ]
       return created
+    },
+
+    async updateGoal(goalId, payload, authHeader = {}) {
+      const updated = await $fetch(`/api/goals/${goalId}`, {
+        method: 'PUT',
+        body: payload,
+        headers: authHeader
+      })
+
+      this.goals = this.goals.map((goal) => {
+        if (goal.id !== goalId) return goal
+        return {
+          ...goal,
+          ...updated,
+          tasks: goal.tasks || []
+        }
+      })
+
+      return updated
+    },
+
+    async deleteGoal(goalId, authHeader = {}) {
+      await $fetch(`/api/goals/${goalId}`, {
+        method: 'DELETE',
+        headers: authHeader
+      })
+
+      const deletedTaskIds = new Set(
+        (this.goals.find((goal) => goal.id === goalId)?.tasks || []).map((task) => task.id)
+      )
+
+      this.goals = this.goals.filter((goal) => goal.id !== goalId)
+      this.assignedTasks = this.assignedTasks.filter((task) => !deletedTaskIds.has(task.id))
     },
 
     async createTask(goalId, payload, authHeader = {}) {
@@ -63,6 +114,25 @@ export const useTrackerStore = defineStore('tracker', {
       return created
     },
 
+    async updateTask(taskId, payload, authHeader = {}) {
+      const updated = await $fetch(`/api/tasks/${taskId}`, {
+        method: 'PUT',
+        body: payload,
+        headers: authHeader
+      })
+
+      this.upsertTaskInGoals(updated)
+      return updated
+    },
+
+    async deleteTask(taskId, authHeader = {}) {
+      await $fetch(`/api/tasks/${taskId}`, {
+        method: 'DELETE',
+        headers: authHeader
+      })
+      this.removeTaskFromGoals(taskId)
+    },
+
     async assignTask(taskId, assigneeId, authHeader = {}) {
       const updated = await $fetch(`/api/tasks/${taskId}/assign`, {
         method: 'PUT',
@@ -70,13 +140,11 @@ export const useTrackerStore = defineStore('tracker', {
         headers: authHeader
       })
 
-      for (const goal of this.goals) {
-        const task = (goal.tasks || []).find((item) => item.id === taskId)
-        if (task) {
-          task.assigneeId = updated.assigneeId
-          task.assigneeName = updated.assigneeName || task.assigneeName || ''
-        }
-      }
+      this.upsertTaskInGoals(updated)
+      this.assignedTasks = this.assignedTasks.map((task) => {
+        if (task.id !== taskId) return task
+        return { ...task, ...updated }
+      })
 
       return updated
     }

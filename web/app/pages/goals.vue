@@ -1,3 +1,3 @@
 <template>
-  <HomeTasksView />
+  <TaskTrackerBoard />
 </template>
