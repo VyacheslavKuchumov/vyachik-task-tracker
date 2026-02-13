@@ -228,6 +228,44 @@ func (h *Handler) HandleCreateTask(w http.ResponseWriter, r *http.Request) {
 	utils.WriteJSON(w, http.StatusCreated, task)
 }
 
+// HandleGetGoalTasks godoc
+// @Summary Get tasks by goal
+// @Description Get a single goal with its tasks
+// @Tags tasks
+// @Produce json
+// @Security BearerAuth
+// @Param goalID path int true "Goal ID"
+// @Success 200 {object} types.GoalWithTasks
+// @Failure 400 {object} types.ErrorResponse
+// @Failure 403 {object} types.ErrorResponse
+// @Failure 500 {object} types.ErrorResponse
+// @Router /goals/{goalID}/tasks [get]
+func (h *Handler) HandleGetGoalTasks(w http.ResponseWriter, r *http.Request) {
+	ownerID := auth.GetUserIDFromContext(r.Context())
+	if ownerID <= 0 {
+		utils.WriteError(w, http.StatusForbidden, fmt.Errorf("permission denied"))
+		return
+	}
+
+	goalID, err := parsePathID(r, "goalID")
+	if err != nil {
+		utils.WriteError(w, http.StatusBadRequest, fmt.Errorf("invalid goal id"))
+		return
+	}
+
+	goalWithTasks, err := h.store.GetGoalWithTasks(goalID, ownerID)
+	if err != nil {
+		status := http.StatusInternalServerError
+		if err == ErrForbidden {
+			status = http.StatusForbidden
+		}
+		utils.WriteError(w, status, err)
+		return
+	}
+
+	utils.WriteJSON(w, http.StatusOK, goalWithTasks)
+}
+
 // HandleAssignTask godoc
 // @Summary Assign task
 // @Description Assign or unassign a task. Only the goal owner can assign tasks.
@@ -387,6 +425,32 @@ func (h *Handler) HandleGetAssignedTasks(w http.ResponseWriter, r *http.Request)
 	}
 
 	utils.WriteJSON(w, http.StatusOK, tasks)
+}
+
+// HandleGetUsersWithCurrentTasks godoc
+// @Summary Get users with current tasks
+// @Description Get all users and their current assigned tasks (todo and in_progress)
+// @Tags users
+// @Produce json
+// @Security BearerAuth
+// @Success 200 {array} types.UserTasksBoard
+// @Failure 403 {object} types.ErrorResponse
+// @Failure 500 {object} types.ErrorResponse
+// @Router /users/tasks [get]
+func (h *Handler) HandleGetUsersWithCurrentTasks(w http.ResponseWriter, r *http.Request) {
+	userID := auth.GetUserIDFromContext(r.Context())
+	if userID <= 0 {
+		utils.WriteError(w, http.StatusForbidden, fmt.Errorf("permission denied"))
+		return
+	}
+
+	usersTasks, err := h.store.GetUsersWithCurrentTasks()
+	if err != nil {
+		utils.WriteError(w, http.StatusInternalServerError, err)
+		return
+	}
+
+	utils.WriteJSON(w, http.StatusOK, usersTasks)
 }
 
 func parsePathID(r *http.Request, key string) (int, error) {

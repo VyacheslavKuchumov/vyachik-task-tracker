@@ -72,6 +72,156 @@ func (h *Handler) HandleRegister(w http.ResponseWriter, r *http.Request) {
 	utils.WriteJSON(w, http.StatusCreated, nil)
 }
 
+// HandleGetProfile godoc
+// @Summary Get profile
+// @Description Get authenticated user's profile
+// @Tags users
+// @Produce json
+// @Security BearerAuth
+// @Success 200 {object} types.UserProfile
+// @Failure 403 {object} types.ErrorResponse
+// @Failure 500 {object} types.ErrorResponse
+// @Router /profile [get]
+func (h *Handler) HandleGetProfile(w http.ResponseWriter, r *http.Request) {
+	userID := auth.GetUserIDFromContext(r.Context())
+	if userID <= 0 {
+		utils.WriteError(w, http.StatusForbidden, fmt.Errorf("permission denied"))
+		return
+	}
+
+	user, err := h.store.GetUserByID(userID)
+	if err != nil {
+		utils.WriteError(w, http.StatusInternalServerError, err)
+		return
+	}
+
+	utils.WriteJSON(w, http.StatusOK, toUserProfile(user))
+}
+
+// HandleUpdateProfile godoc
+// @Summary Update profile
+// @Description Update authenticated user's first and last name
+// @Tags users
+// @Accept json
+// @Produce json
+// @Security BearerAuth
+// @Param payload body types.UpdateProfilePayload true "Profile payload"
+// @Success 200 {object} types.UserProfile
+// @Failure 400 {object} types.ErrorResponse
+// @Failure 403 {object} types.ErrorResponse
+// @Failure 500 {object} types.ErrorResponse
+// @Router /profile [put]
+func (h *Handler) HandleUpdateProfile(w http.ResponseWriter, r *http.Request) {
+	userID := auth.GetUserIDFromContext(r.Context())
+	if userID <= 0 {
+		utils.WriteError(w, http.StatusForbidden, fmt.Errorf("permission denied"))
+		return
+	}
+
+	var payload types.UpdateProfilePayload
+	if err := utils.ParseJSON(r, &payload); err != nil {
+		utils.WriteError(w, http.StatusBadRequest, err)
+		return
+	}
+
+	if err := utils.Validate.Struct(payload); err != nil {
+		errors := err.(validator.ValidationErrors)
+		utils.WriteError(w, http.StatusBadRequest, fmt.Errorf("invalid payload %v", errors))
+		return
+	}
+
+	user, err := h.store.UpdateUserProfile(userID, payload)
+	if err != nil {
+		utils.WriteError(w, http.StatusInternalServerError, err)
+		return
+	}
+
+	utils.WriteJSON(w, http.StatusOK, toUserProfile(user))
+}
+
+// HandleUpdatePassword godoc
+// @Summary Update password
+// @Description Change authenticated user's password
+// @Tags users
+// @Accept json
+// @Produce json
+// @Security BearerAuth
+// @Param payload body types.UpdatePasswordPayload true "Password payload"
+// @Success 204 {object} nil
+// @Failure 400 {object} types.ErrorResponse
+// @Failure 403 {object} types.ErrorResponse
+// @Failure 500 {object} types.ErrorResponse
+// @Router /profile/password [put]
+func (h *Handler) HandleUpdatePassword(w http.ResponseWriter, r *http.Request) {
+	userID := auth.GetUserIDFromContext(r.Context())
+	if userID <= 0 {
+		utils.WriteError(w, http.StatusForbidden, fmt.Errorf("permission denied"))
+		return
+	}
+
+	var payload types.UpdatePasswordPayload
+	if err := utils.ParseJSON(r, &payload); err != nil {
+		utils.WriteError(w, http.StatusBadRequest, err)
+		return
+	}
+
+	if err := utils.Validate.Struct(payload); err != nil {
+		errors := err.(validator.ValidationErrors)
+		utils.WriteError(w, http.StatusBadRequest, fmt.Errorf("invalid payload %v", errors))
+		return
+	}
+
+	user, err := h.store.GetUserByID(userID)
+	if err != nil {
+		utils.WriteError(w, http.StatusInternalServerError, err)
+		return
+	}
+
+	if !auth.ComparePasswords(user.Password, payload.CurrentPassword) {
+		utils.WriteError(w, http.StatusBadRequest, fmt.Errorf("current password is invalid"))
+		return
+	}
+
+	hashedPassword, err := auth.HashPassword(payload.NewPassword)
+	if err != nil {
+		utils.WriteError(w, http.StatusInternalServerError, err)
+		return
+	}
+
+	if err := h.store.UpdateUserPassword(userID, hashedPassword); err != nil {
+		utils.WriteError(w, http.StatusInternalServerError, err)
+		return
+	}
+
+	w.WriteHeader(http.StatusNoContent)
+}
+
+// HandleListUsers godoc
+// @Summary List users lookup
+// @Description List users for assignment lookups
+// @Tags users
+// @Produce json
+// @Security BearerAuth
+// @Success 200 {array} types.UserLookup
+// @Failure 403 {object} types.ErrorResponse
+// @Failure 500 {object} types.ErrorResponse
+// @Router /users/lookup [get]
+func (h *Handler) HandleListUsers(w http.ResponseWriter, r *http.Request) {
+	userID := auth.GetUserIDFromContext(r.Context())
+	if userID <= 0 {
+		utils.WriteError(w, http.StatusForbidden, fmt.Errorf("permission denied"))
+		return
+	}
+
+	users, err := h.store.ListUsers()
+	if err != nil {
+		utils.WriteError(w, http.StatusInternalServerError, err)
+		return
+	}
+
+	utils.WriteJSON(w, http.StatusOK, users)
+}
+
 func (h *Handler) registerUser(payload types.RegisterUserPayload) error {
 	if err := utils.Validate.Struct(payload); err != nil {
 		errors := err.(validator.ValidationErrors)
@@ -122,4 +272,14 @@ func (h *Handler) createSessionToken(payload types.LoginUserPayload) (string, er
 	}
 
 	return token, nil
+}
+
+func toUserProfile(user *types.User) types.UserProfile {
+	return types.UserProfile{
+		ID:        user.ID,
+		FirstName: user.FirstName,
+		LastName:  user.LastName,
+		Email:     user.Email,
+		CreatedAt: user.CreatedAt,
+	}
 }

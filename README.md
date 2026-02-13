@@ -9,7 +9,10 @@ Task Tracker is a full-stack goals and tasks application:
 Frontend views:
 
 - Home: your assigned tasks
-- Goals: goals list with nested task CRUD
+- Goals: goals list and navigation to goal tasks
+- Goal Tasks (`/tasks/:goalId`): task CRUD with user lookup assignment
+- Users (`/users`): all users and their current tasks
+- Profile: update first name/last name and password
 
 ## Quick Start
 

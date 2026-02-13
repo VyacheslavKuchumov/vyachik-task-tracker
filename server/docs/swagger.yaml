@@ -9,14 +9,12 @@ definitions:
     properties:
       description:
         maxLength: 2000
-        minLength: 3
         type: string
       title:
         maxLength: 255
         minLength: 3
         type: string
     required:
-    - description
     - title
     type: object
   types.CreateTaskPayload:
@@ -25,14 +23,12 @@ definitions:
         type: integer
       description:
         maxLength: 2000
-        minLength: 3
         type: string
       title:
         maxLength: 255
         minLength: 3
         type: string
     required:
-    - description
     - title
     type: object
   types.ErrorResponse:
@@ -132,13 +128,40 @@ definitions:
       title:
         type: string
     type: object
+  types.UpdatePasswordPayload:
+    properties:
+      currentPassword:
+        maxLength: 130
+        minLength: 3
+        type: string
+      newPassword:
+        maxLength: 130
+        minLength: 3
+        type: string
+    required:
+    - currentPassword
+    - newPassword
+    type: object
+  types.UpdateProfilePayload:
+    properties:
+      firstName:
+        maxLength: 255
+        minLength: 1
+        type: string
+      lastName:
+        maxLength: 255
+        minLength: 1
+        type: string
+    required:
+    - firstName
+    - lastName
+    type: object
   types.UpdateTaskPayload:
     properties:
       assigneeId:
         type: integer
       description:
         maxLength: 2000
-        minLength: 3
         type: string
       goalId:
         minimum: 1
@@ -154,10 +177,42 @@ definitions:
         minLength: 3
         type: string
     required:
-    - description
     - goalId
     - status
     - title
+    type: object
+  types.UserLookup:
+    properties:
+      id:
+        type: integer
+      name:
+        type: string
+    type: object
+  types.UserProfile:
+    properties:
+      createdAt:
+        type: string
+      email:
+        type: string
+      firstName:
+        type: string
+      id:
+        type: integer
+      lastName:
+        type: string
+    type: object
+  types.UserTasksBoard:
+    properties:
+      email:
+        type: string
+      id:
+        type: integer
+      name:
+        type: string
+      tasks:
+        items:
+          $ref: '#/definitions/types.Task'
+        type: array
     type: object
 info:
   contact: {}
@@ -297,6 +352,38 @@ paths:
       tags:
       - goals
   /goals/{goalID}/tasks:
+    get:
+      description: Get a single goal with its tasks
+      parameters:
+      - description: Goal ID
+        in: path
+        name: goalID
+        required: true
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/types.GoalWithTasks'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/types.ErrorResponse'
+        "403":
+          description: Forbidden
+          schema:
+            $ref: '#/definitions/types.ErrorResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/types.ErrorResponse'
+      security:
+      - BearerAuth: []
+      summary: Get tasks by goal
+      tags:
+      - tasks
     post:
       consumes:
       - application/json
@@ -363,6 +450,98 @@ paths:
       summary: Login
       tags:
       - auth
+  /profile:
+    get:
+      description: Get authenticated user's profile
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/types.UserProfile'
+        "403":
+          description: Forbidden
+          schema:
+            $ref: '#/definitions/types.ErrorResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/types.ErrorResponse'
+      security:
+      - BearerAuth: []
+      summary: Get profile
+      tags:
+      - users
+    put:
+      consumes:
+      - application/json
+      description: Update authenticated user's first and last name
+      parameters:
+      - description: Profile payload
+        in: body
+        name: payload
+        required: true
+        schema:
+          $ref: '#/definitions/types.UpdateProfilePayload'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/types.UserProfile'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/types.ErrorResponse'
+        "403":
+          description: Forbidden
+          schema:
+            $ref: '#/definitions/types.ErrorResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/types.ErrorResponse'
+      security:
+      - BearerAuth: []
+      summary: Update profile
+      tags:
+      - users
+  /profile/password:
+    put:
+      consumes:
+      - application/json
+      description: Change authenticated user's password
+      parameters:
+      - description: Password payload
+        in: body
+        name: payload
+        required: true
+        schema:
+          $ref: '#/definitions/types.UpdatePasswordPayload'
+      produces:
+      - application/json
+      responses:
+        "204":
+          description: No Content
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/types.ErrorResponse'
+        "403":
+          description: Forbidden
+          schema:
+            $ref: '#/definitions/types.ErrorResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/types.ErrorResponse'
+      security:
+      - BearerAuth: []
+      summary: Update password
+      tags:
+      - users
   /register:
     post:
       consumes:
@@ -527,6 +706,56 @@ paths:
       summary: Get assigned tasks
       tags:
       - tasks
+  /users/lookup:
+    get:
+      description: List users for assignment lookups
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            items:
+              $ref: '#/definitions/types.UserLookup'
+            type: array
+        "403":
+          description: Forbidden
+          schema:
+            $ref: '#/definitions/types.ErrorResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/types.ErrorResponse'
+      security:
+      - BearerAuth: []
+      summary: List users lookup
+      tags:
+      - users
+  /users/tasks:
+    get:
+      description: Get all users and their current assigned tasks (todo and in_progress)
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            items:
+              $ref: '#/definitions/types.UserTasksBoard'
+            type: array
+        "403":
+          description: Forbidden
+          schema:
+            $ref: '#/definitions/types.ErrorResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/types.ErrorResponse'
+      security:
+      - BearerAuth: []
+      summary: Get users with current tasks
+      tags:
+      - users
 schemes:
 - http
 securityDefinitions:

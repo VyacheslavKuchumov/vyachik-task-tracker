@@ -6,6 +6,9 @@ type UserStore interface {
 	GetUserByEmail(email string) (*User, error)
 	GetUserByID(id int) (*User, error)
 	CreateUser(User) error
+	UpdateUserProfile(userID int, payload UpdateProfilePayload) (*User, error)
+	UpdateUserPassword(userID int, hashedPassword string) error
+	ListUsers() ([]*UserLookup, error)
 }
 
 type GoalTaskStore interface {
@@ -13,6 +16,8 @@ type GoalTaskStore interface {
 	UpdateGoal(goalID, ownerID int, payload CreateGoalPayload) (*Goal, error)
 	DeleteGoal(goalID, ownerID int) error
 	GetGoalsByOwner(ownerID int) ([]*GoalWithTasks, error)
+	GetGoalWithTasks(goalID, ownerID int) (*GoalWithTasks, error)
+	GetUsersWithCurrentTasks() ([]*UserTasksBoard, error)
 	CreateTask(goalID, creatorID int, payload CreateTaskPayload) (*Task, error)
 	UpdateTask(taskID, requesterID int, payload UpdateTaskPayload) (*Task, error)
 	DeleteTask(taskID, requesterID int) error
@@ -37,7 +42,7 @@ type GoalWithTasks struct {
 
 type CreateGoalPayload struct {
 	Title       string `json:"title" validate:"required,min=3,max=255"`
-	Description string `json:"description" validate:"required,min=3,max=2000"`
+	Description string `json:"description" validate:"max=2000"`
 }
 
 type Task struct {
@@ -56,14 +61,14 @@ type Task struct {
 
 type CreateTaskPayload struct {
 	Title       string `json:"title" validate:"required,min=3,max=255"`
-	Description string `json:"description" validate:"required,min=3,max=2000"`
+	Description string `json:"description" validate:"max=2000"`
 	AssigneeID  *int   `json:"assigneeId,omitempty"`
 }
 
 type UpdateTaskPayload struct {
 	GoalID      int    `json:"goalId" validate:"required,min=1"`
 	Title       string `json:"title" validate:"required,min=3,max=255"`
-	Description string `json:"description" validate:"required,min=3,max=2000"`
+	Description string `json:"description" validate:"max=2000"`
 	Status      string `json:"status" validate:"required,oneof=todo in_progress done"`
 	AssigneeID  *int   `json:"assigneeId,omitempty"`
 }
@@ -77,6 +82,13 @@ type UserLookup struct {
 	Name string `json:"name"`
 }
 
+type UserTasksBoard struct {
+	ID    int     `json:"id"`
+	Name  string  `json:"name"`
+	Email string  `json:"email"`
+	Tasks []*Task `json:"tasks"`
+}
+
 type User struct {
 	ID        int       `json:"id"`
 	FirstName string    `json:"firstName"`
@@ -84,6 +96,24 @@ type User struct {
 	Email     string    `json:"email"`
 	Password  string    `json:"password"`
 	CreatedAt time.Time `json:"createdAt"`
+}
+
+type UserProfile struct {
+	ID        int       `json:"id"`
+	FirstName string    `json:"firstName"`
+	LastName  string    `json:"lastName"`
+	Email     string    `json:"email"`
+	CreatedAt time.Time `json:"createdAt"`
+}
+
+type UpdateProfilePayload struct {
+	FirstName string `json:"firstName" validate:"required,min=1,max=255"`
+	LastName  string `json:"lastName" validate:"required,min=1,max=255"`
+}
+
+type UpdatePasswordPayload struct {
+	CurrentPassword string `json:"currentPassword" validate:"required,min=3,max=130"`
+	NewPassword     string `json:"newPassword" validate:"required,min=3,max=130"`
 }
 
 type RegisterUserPayload struct {

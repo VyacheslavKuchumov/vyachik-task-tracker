@@ -68,6 +68,44 @@ Success response (`200 OK`):
 }
 ```
 
+### `GET /profile` (protected)
+
+Returns current user profile.
+
+### `PUT /profile` (protected)
+
+Updates first and last name.
+
+Request body:
+
+```json
+{
+  "firstName": "Alice",
+  "lastName": "Smith"
+}
+```
+
+### `PUT /profile/password` (protected)
+
+Changes password.
+
+Request body:
+
+```json
+{
+  "currentPassword": "old-secret",
+  "newPassword": "new-secret"
+}
+```
+
+### `GET /users/lookup` (protected)
+
+Returns user lookup list for assignment UI.
+
+### `GET /users/tasks` (protected)
+
+Returns all users with their current assigned tasks (`todo`, `in_progress`).
+
 ## Goals Endpoints
 
 ### `GET /goals` (protected)
@@ -108,7 +146,7 @@ Success: `201 Created`
 Validation:
 
 - `title` length `3..255`
-- `description` length `3..2000`
+- `description` is optional, max length `2000`
 
 ### `PUT /goals/{goalID}` (protected)
 
@@ -150,7 +188,12 @@ Request body:
 Notes:
 
 - `assigneeId` is optional and may be `null`
+- `description` is optional
 - returns `403` when requester does not own the goal
+
+### `GET /goals/{goalID}/tasks` (protected)
+
+Returns one goal object with nested tasks. Used by `/tasks/:goalId` page.
 
 ### `GET /tasks/assigned` (protected)
 

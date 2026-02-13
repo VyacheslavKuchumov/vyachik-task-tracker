@@ -22,7 +22,8 @@ function getTokenExpiryMs(token) {
 export const useAuthStore = defineStore('auth', {
   state: () => ({
     token: null,
-    userId: null
+    userId: null,
+    profile: null
   }),
   getters: {
     isAuthenticated: (state) => {
@@ -30,6 +31,14 @@ export const useAuthStore = defineStore('auth', {
       const expiryMs = getTokenExpiryMs(state.token)
       if (!expiryMs) return false
       return Date.now() < expiryMs
+    },
+    fullName: (state) => {
+      const firstName = state.profile?.firstName?.trim() || ''
+      const lastName = state.profile?.lastName?.trim() || ''
+      return `${firstName} ${lastName}`.trim()
+    },
+    displayName() {
+      return this.fullName || this.profile?.email || 'Пользователь'
     }
   },
   persist: true,
@@ -37,6 +46,7 @@ export const useAuthStore = defineStore('auth', {
     hydrateFromToken() {
       if (!this.token) {
         this.userId = null
+        this.profile = null
         return
       }
 
@@ -57,6 +67,7 @@ export const useAuthStore = defineStore('auth', {
 
       this.token = response.token
       this.hydrateFromToken()
+      await this.fetchProfile()
     },
 
     async signup({ firstName, lastName, email, password }) {
@@ -68,6 +79,38 @@ export const useAuthStore = defineStore('auth', {
       await this.login({ email, password })
     },
 
+    async fetchProfile() {
+      if (!this.token) return null
+
+      const profile = await $fetch('/api/profile', {
+        headers: this.authHeader()
+      })
+
+      this.profile = profile
+      const parsedId = Number(profile?.id)
+      this.userId = Number.isFinite(parsedId) && parsedId > 0 ? parsedId : this.userId
+      return profile
+    },
+
+    async updateProfile({ firstName, lastName }) {
+      const profile = await $fetch('/api/profile', {
+        method: 'PUT',
+        headers: this.authHeader(),
+        body: { firstName, lastName }
+      })
+
+      this.profile = profile
+      return profile
+    },
+
+    async changePassword({ currentPassword, newPassword }) {
+      await $fetch('/api/profile/password', {
+        method: 'PUT',
+        headers: this.authHeader(),
+        body: { currentPassword, newPassword }
+      })
+    },
+
     authHeader() {
       if (!this.token) return {}
       return { Authorization: `Bearer ${this.token}` }
@@ -76,6 +119,7 @@ export const useAuthStore = defineStore('auth', {
     logout(redirect = true) {
       this.token = null
       this.userId = null
+      this.profile = null
 
       if (redirect) {
         navigateTo('/login')

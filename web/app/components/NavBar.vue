@@ -6,33 +6,39 @@
         variant="ghost"
         icon="i-lucide-check-square"
         size="lg"
-        :label="'Vyachik Task Tracker'"
+        :label="'Трекер задач Vyachik'"
         @click="goHome"
       />
 
       <div class="flex items-center gap-2">
-        <UBadge v-if="auth.isAuthenticated && auth.userId" color="neutral" variant="subtle" size="lg">
-          User #{{ auth.userId }}
+        <UBadge v-if="auth.isAuthenticated" color="neutral" variant="subtle" size="lg">
+          {{ auth.displayName }}
         </UBadge>
 
         <template v-if="auth.isAuthenticated">
           <UButton to="/" color="neutral" variant="soft" icon="i-lucide-house">
-            Home
+            Главная
           </UButton>
           <UButton to="/goals" color="neutral" variant="soft" icon="i-lucide-folder-kanban">
-            Goals
+            Цели
+          </UButton>
+          <UButton to="/users" color="neutral" variant="soft" icon="i-lucide-users">
+            Пользователи
+          </UButton>
+          <UButton to="/profile" color="neutral" variant="soft" icon="i-lucide-user-round">
+            Профиль
           </UButton>
           <UButton color="error" variant="soft" icon="i-lucide-log-out" @click="auth.logout()">
-            Logout
+            Выйти
           </UButton>
         </template>
 
         <template v-else>
           <UButton to="/login" color="neutral" variant="soft" icon="i-lucide-log-in">
-            Login
+            Войти
           </UButton>
           <UButton to="/signup" color="primary" icon="i-lucide-user-plus">
-            Sign up
+            Регистрация
           </UButton>
         </template>
       </div>
@@ -52,4 +58,14 @@ function goHome() {
 
   router.push('/login')
 }
+
+onMounted(async () => {
+  if (auth.isAuthenticated && !auth.profile) {
+    try {
+      await auth.fetchProfile()
+    } catch {
+      auth.logout(false)
+    }
+  }
+})
 </script>

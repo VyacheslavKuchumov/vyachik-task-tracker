@@ -185,6 +185,237 @@ func (s *Store) GetGoalsByOwner(ownerID int) ([]*types.GoalWithTasks, error) {
 	return goals, rows.Err()
 }
 
+func (s *Store) GetGoalWithTasks(goalID, ownerID int) (*types.GoalWithTasks, error) {
+	rows, err := s.db.Query(
+		`SELECT
+			g.id,
+			g.title,
+			g.description,
+			g.owner_id,
+			g.created_at,
+			TRIM(CONCAT(owner_u.first_name, ' ', owner_u.last_name)) AS owner_name,
+			t.id,
+			t.goal_id,
+			t.title,
+			t.description,
+			t.status,
+			t.assignee_id,
+			t.created_by,
+			t.created_at,
+			TRIM(CONCAT(assignee_u.first_name, ' ', assignee_u.last_name)) AS assignee_name,
+			TRIM(CONCAT(creator_u.first_name, ' ', creator_u.last_name)) AS creator_name
+		FROM goals g
+		JOIN users owner_u ON owner_u.id = g.owner_id
+		LEFT JOIN tasks t ON t.goal_id = g.id
+		LEFT JOIN users assignee_u ON assignee_u.id = t.assignee_id
+		LEFT JOIN users creator_u ON creator_u.id = t.created_by
+		WHERE g.id = $1 AND g.owner_id = $2
+		ORDER BY t.created_at ASC`,
+		goalID,
+		ownerID,
+	)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var (
+		goalFound bool
+		goal      types.Goal
+		goalModel *types.GoalWithTasks
+	)
+
+	for rows.Next() {
+		var (
+			currentGoal      types.Goal
+			goalOwnerName    string
+			taskID           sql.NullInt64
+			taskGoalID       sql.NullInt64
+			taskTitle        sql.NullString
+			taskDesc         sql.NullString
+			taskStatus       sql.NullString
+			assigneeID       sql.NullInt64
+			createdBy        sql.NullInt64
+			taskAt           sql.NullTime
+			taskAssigneeName sql.NullString
+			taskCreatorName  sql.NullString
+		)
+
+		if err := rows.Scan(
+			&currentGoal.ID,
+			&currentGoal.Title,
+			&currentGoal.Description,
+			&currentGoal.OwnerID,
+			&currentGoal.CreatedAt,
+			&goalOwnerName,
+			&taskID,
+			&taskGoalID,
+			&taskTitle,
+			&taskDesc,
+			&taskStatus,
+			&assigneeID,
+			&createdBy,
+			&taskAt,
+			&taskAssigneeName,
+			&taskCreatorName,
+		); err != nil {
+			return nil, err
+		}
+
+		if !goalFound {
+			currentGoal.OwnerName = goalOwnerName
+			goal = currentGoal
+			goalModel = &types.GoalWithTasks{
+				Goal:  goal,
+				Tasks: []*types.Task{},
+			}
+			goalFound = true
+		}
+
+		if taskID.Valid {
+			task := &types.Task{
+				ID:            int(taskID.Int64),
+				GoalID:        int(taskGoalID.Int64),
+				GoalTitle:     goal.Title,
+				Title:         taskTitle.String,
+				Description:   taskDesc.String,
+				Status:        taskStatus.String,
+				CreatedBy:     int(createdBy.Int64),
+				CreatedByName: taskCreatorName.String,
+				CreatedAt:     taskAt.Time,
+			}
+			if assigneeID.Valid {
+				value := int(assigneeID.Int64)
+				task.AssigneeID = &value
+			}
+			if taskAssigneeName.Valid {
+				task.AssigneeName = taskAssigneeName.String
+			}
+			goalModel.Tasks = append(goalModel.Tasks, task)
+		}
+	}
+
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	if !goalFound {
+		return nil, ErrForbidden
+	}
+	return goalModel, nil
+}
+
+func (s *Store) GetUsersWithCurrentTasks() ([]*types.UserTasksBoard, error) {
+	rows, err := s.db.Query(
+		`SELECT
+			u.id,
+			TRIM(CONCAT(u.first_name, ' ', u.last_name)) AS user_name,
+			u.email,
+			t.id,
+			t.goal_id,
+			t.title,
+			t.description,
+			t.status,
+			t.assignee_id,
+			t.created_by,
+			t.created_at,
+			g.title AS goal_title,
+			TRIM(CONCAT(assignee_u.first_name, ' ', assignee_u.last_name)) AS assignee_name,
+			TRIM(CONCAT(creator_u.first_name, ' ', creator_u.last_name)) AS creator_name
+		FROM users u
+		LEFT JOIN tasks t
+			ON t.assignee_id = u.id
+			AND t.status IN ('todo', 'in_progress')
+		LEFT JOIN goals g ON g.id = t.goal_id
+		LEFT JOIN users assignee_u ON assignee_u.id = t.assignee_id
+		LEFT JOIN users creator_u ON creator_u.id = t.created_by
+		ORDER BY u.first_name, u.last_name, u.id, t.created_at DESC`,
+	)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	boards := make([]*types.UserTasksBoard, 0)
+	boardByUserID := make(map[int]*types.UserTasksBoard)
+
+	for rows.Next() {
+		var (
+			userID    int
+			userName  string
+			userEmail string
+
+			taskID           sql.NullInt64
+			taskGoalID       sql.NullInt64
+			taskTitle        sql.NullString
+			taskDesc         sql.NullString
+			taskStatus       sql.NullString
+			assigneeID       sql.NullInt64
+			createdBy        sql.NullInt64
+			taskAt           sql.NullTime
+			taskGoalTitle    sql.NullString
+			taskAssigneeName sql.NullString
+			taskCreatorName  sql.NullString
+		)
+
+		if err := rows.Scan(
+			&userID,
+			&userName,
+			&userEmail,
+			&taskID,
+			&taskGoalID,
+			&taskTitle,
+			&taskDesc,
+			&taskStatus,
+			&assigneeID,
+			&createdBy,
+			&taskAt,
+			&taskGoalTitle,
+			&taskAssigneeName,
+			&taskCreatorName,
+		); err != nil {
+			return nil, err
+		}
+
+		board, exists := boardByUserID[userID]
+		if !exists {
+			board = &types.UserTasksBoard{
+				ID:    userID,
+				Name:  userName,
+				Email: userEmail,
+				Tasks: []*types.Task{},
+			}
+			boardByUserID[userID] = board
+			boards = append(boards, board)
+		}
+
+		if taskID.Valid {
+			task := &types.Task{
+				ID:          int(taskID.Int64),
+				GoalID:      int(taskGoalID.Int64),
+				GoalTitle:   taskGoalTitle.String,
+				Title:       taskTitle.String,
+				Description: taskDesc.String,
+				Status:      taskStatus.String,
+				CreatedBy:   int(createdBy.Int64),
+				CreatedAt:   taskAt.Time,
+			}
+			if assigneeID.Valid {
+				value := int(assigneeID.Int64)
+				task.AssigneeID = &value
+			}
+			if taskAssigneeName.Valid {
+				task.AssigneeName = taskAssigneeName.String
+			}
+			if taskCreatorName.Valid {
+				task.CreatedByName = taskCreatorName.String
+			}
+			board.Tasks = append(board.Tasks, task)
+		}
+	}
+
+	return boards, rows.Err()
+}
+
 func (s *Store) CreateTask(goalID, creatorID int, payload types.CreateTaskPayload) (*types.Task, error) {
 	row := s.db.QueryRow(
 		`INSERT INTO tasks (goal_id, title, description, assignee_id, created_by)

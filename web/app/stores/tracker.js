@@ -2,8 +2,12 @@ export const useTrackerStore = defineStore('tracker', {
   state: () => ({
     goals: [],
     assignedTasks: [],
+    usersTaskBoard: [],
+    usersLookup: [],
     loadingGoals: false,
-    loadingAssigned: false
+    loadingAssigned: false,
+    loadingUsersTaskBoard: false,
+    loadingUsersLookup: false
   }),
   actions: {
     async fetchGoals(authHeader = {}) {
@@ -28,11 +32,41 @@ export const useTrackerStore = defineStore('tracker', {
       }
     },
 
+    async fetchUsersTaskBoard(authHeader = {}) {
+      this.loadingUsersTaskBoard = true
+      try {
+        this.usersTaskBoard = await $fetch('/api/users/tasks', {
+          headers: authHeader
+        })
+      } finally {
+        this.loadingUsersTaskBoard = false
+      }
+      return this.usersTaskBoard
+    },
+
     async refresh(authHeader = {}) {
       await Promise.all([
         this.fetchGoals(authHeader),
         this.fetchAssignedTasks(authHeader)
       ])
+    },
+
+    async fetchGoalTasks(goalId, authHeader = {}) {
+      return await $fetch(`/api/goals/${goalId}/tasks`, {
+        headers: authHeader
+      })
+    },
+
+    async fetchUsersLookup(authHeader = {}) {
+      this.loadingUsersLookup = true
+      try {
+        this.usersLookup = await $fetch('/api/users/lookup', {
+          headers: authHeader
+        })
+      } finally {
+        this.loadingUsersLookup = false
+      }
+      return this.usersLookup
     },
 
     upsertTaskInGoals(updatedTask) {

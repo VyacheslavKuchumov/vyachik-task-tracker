@@ -40,3 +40,26 @@ npm run dev
 ```
 
 Frontend: `http://localhost:3000`
+
+## Playwright E2E
+
+These tests cover the main user flow in the UI:
+
+- registration and authenticated navigation
+- goal creation
+- task creation/editing under a goal
+- users/tasks board visibility
+- profile update and password change
+
+Prerequisites:
+
+1. backend API available on `http://127.0.0.1:8000` (or set `PLAYWRIGHT_BACKEND_URL`)
+2. database/backend started before test run
+3. frontend app started on `http://127.0.0.1:3000` (or set `PLAYWRIGHT_BASE_URL`)
+
+Run:
+
+```bash
+cd web
+npm run test:e2e
+```

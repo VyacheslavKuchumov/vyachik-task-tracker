@@ -18,11 +18,17 @@ func TestProtectedEndpointsRequireAuthorization(t *testing.T) {
 		body   []byte
 	}{
 		{name: "swagger ui", method: http.MethodGet, path: "/swagger/index.html"},
+		{name: "get profile", method: http.MethodGet, path: "/api/v1/profile"},
+		{name: "update profile", method: http.MethodPut, path: "/api/v1/profile", body: []byte(`{}`)},
+		{name: "update password", method: http.MethodPut, path: "/api/v1/profile/password", body: []byte(`{}`)},
+		{name: "user lookup", method: http.MethodGet, path: "/api/v1/users/lookup"},
+		{name: "users with current tasks", method: http.MethodGet, path: "/api/v1/users/tasks"},
 		{name: "list goals", method: http.MethodGet, path: "/api/v1/goals"},
 		{name: "create goal", method: http.MethodPost, path: "/api/v1/goals", body: []byte(`{}`)},
 		{name: "update goal", method: http.MethodPut, path: "/api/v1/goals/1", body: []byte(`{}`)},
 		{name: "delete goal", method: http.MethodDelete, path: "/api/v1/goals/1"},
 		{name: "create task", method: http.MethodPost, path: "/api/v1/goals/1/tasks", body: []byte(`{}`)},
+		{name: "list tasks by goal", method: http.MethodGet, path: "/api/v1/goals/1/tasks"},
 		{name: "assigned tasks", method: http.MethodGet, path: "/api/v1/tasks/assigned"},
 		{name: "update task", method: http.MethodPut, path: "/api/v1/tasks/1", body: []byte(`{}`)},
 		{name: "delete task", method: http.MethodDelete, path: "/api/v1/tasks/1"},
