@@ -121,3 +121,21 @@ make migrate-up
 - Commit all agent-made changes to that feature branch.
 - Open a pull request from the feature branch to `main` after pushing changes.
 - Do not merge directly to `main`; merging is done via the pull request workflow.
+
+## Commit Message Guidelines
+
+- Use clear, imperative commit subjects (example: `fix: validate empty task title`).
+- Prefer `type: short summary` format (for example: `feat`, `fix`, `docs`, `refactor`, `test`, `chore`).
+- Keep the subject concise (around 50-72 chars) and focused on one change.
+- Avoid vague messages like `update`, `changes`, or `fix stuff`.
+
+## Pull Request Guidelines
+
+- Keep each PR scoped to one logical change.
+- PR title should summarize the change and match the commit style where possible.
+- In PR description, include:
+  - what changed
+  - why it changed
+  - how it was tested (commands run)
+- If backend/frontend contracts changed, update relevant docs and proxy/store code in the same PR.
+- If API shapes changed, regenerate Swagger docs before opening PR (`cd server && make swagger`).
