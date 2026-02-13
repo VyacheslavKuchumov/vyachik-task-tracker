@@ -2,7 +2,6 @@
 .gitignore
 .vscode
 bin
-docs
 README.md
 LICENSE
 *.log

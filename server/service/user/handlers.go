@@ -19,6 +19,16 @@ func NewHandler(store types.UserStore) *Handler {
 	return &Handler{store: store}
 }
 
+// HandleLogin godoc
+// @Summary Login
+// @Description Authenticate a user and return a JWT token
+// @Tags auth
+// @Accept json
+// @Produce json
+// @Param payload body types.LoginUserPayload true "Login payload"
+// @Success 200 {object} types.LoginResponse
+// @Failure 400 {object} types.ErrorResponse
+// @Router /login [post]
 func (h *Handler) HandleLogin(w http.ResponseWriter, r *http.Request) {
 	var payload types.LoginUserPayload
 	if err := utils.ParseJSON(r, &payload); err != nil {
@@ -33,9 +43,19 @@ func (h *Handler) HandleLogin(w http.ResponseWriter, r *http.Request) {
 	}
 
 	auth.SetAuthCookie(w, token)
-	utils.WriteJSON(w, http.StatusOK, map[string]string{"token": token})
+	utils.WriteJSON(w, http.StatusOK, types.LoginResponse{Token: token})
 }
 
+// HandleRegister godoc
+// @Summary Register
+// @Description Create a new user account
+// @Tags auth
+// @Accept json
+// @Produce json
+// @Param payload body types.RegisterUserPayload true "Registration payload"
+// @Success 201 {object} map[string]interface{}
+// @Failure 400 {object} types.ErrorResponse
+// @Router /register [post]
 func (h *Handler) HandleRegister(w http.ResponseWriter, r *http.Request) {
 	var payload types.RegisterUserPayload
 	if err := utils.ParseJSON(r, &payload); err != nil {

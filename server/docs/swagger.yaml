@@ -1,0 +1,368 @@
+basePath: /api/v1
+definitions:
+  types.AssignTaskPayload:
+    properties:
+      assigneeId:
+        type: integer
+    type: object
+  types.CreateGoalPayload:
+    properties:
+      description:
+        maxLength: 2000
+        minLength: 3
+        type: string
+      title:
+        maxLength: 255
+        minLength: 3
+        type: string
+    required:
+    - description
+    - title
+    type: object
+  types.CreateTaskPayload:
+    properties:
+      assigneeId:
+        type: integer
+      description:
+        maxLength: 2000
+        minLength: 3
+        type: string
+      title:
+        maxLength: 255
+        minLength: 3
+        type: string
+    required:
+    - description
+    - title
+    type: object
+  types.ErrorResponse:
+    properties:
+      error:
+        type: string
+    type: object
+  types.Goal:
+    properties:
+      createdAt:
+        type: string
+      description:
+        type: string
+      id:
+        type: integer
+      ownerId:
+        type: integer
+      ownerName:
+        type: string
+      title:
+        type: string
+    type: object
+  types.GoalWithTasks:
+    properties:
+      createdAt:
+        type: string
+      description:
+        type: string
+      id:
+        type: integer
+      ownerId:
+        type: integer
+      ownerName:
+        type: string
+      tasks:
+        items:
+          $ref: '#/definitions/types.Task'
+        type: array
+      title:
+        type: string
+    type: object
+  types.LoginResponse:
+    properties:
+      token:
+        type: string
+    type: object
+  types.LoginUserPayload:
+    properties:
+      email:
+        type: string
+      password:
+        type: string
+    required:
+    - email
+    - password
+    type: object
+  types.RegisterUserPayload:
+    properties:
+      email:
+        type: string
+      firstName:
+        type: string
+      lastName:
+        type: string
+      password:
+        maxLength: 130
+        minLength: 3
+        type: string
+    required:
+    - email
+    - firstName
+    - lastName
+    - password
+    type: object
+  types.Task:
+    properties:
+      assigneeId:
+        type: integer
+      assigneeName:
+        type: string
+      createdAt:
+        type: string
+      createdBy:
+        type: integer
+      createdByName:
+        type: string
+      description:
+        type: string
+      goalId:
+        type: integer
+      goalTitle:
+        type: string
+      id:
+        type: integer
+      status:
+        type: string
+      title:
+        type: string
+    type: object
+info:
+  contact: {}
+  description: REST API for task tracking with goals and assignments
+  title: Task Tracker API
+  version: "1.0"
+paths:
+  /goals:
+    get:
+      description: Get all goals for the authenticated user with nested tasks
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            items:
+              $ref: '#/definitions/types.GoalWithTasks'
+            type: array
+        "403":
+          description: Forbidden
+          schema:
+            $ref: '#/definitions/types.ErrorResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/types.ErrorResponse'
+      security:
+      - BearerAuth: []
+      summary: Get goals
+      tags:
+      - goals
+    post:
+      consumes:
+      - application/json
+      description: Create a goal owned by the authenticated user
+      parameters:
+      - description: Goal payload
+        in: body
+        name: payload
+        required: true
+        schema:
+          $ref: '#/definitions/types.CreateGoalPayload'
+      produces:
+      - application/json
+      responses:
+        "201":
+          description: Created
+          schema:
+            $ref: '#/definitions/types.Goal'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/types.ErrorResponse'
+        "403":
+          description: Forbidden
+          schema:
+            $ref: '#/definitions/types.ErrorResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/types.ErrorResponse'
+      security:
+      - BearerAuth: []
+      summary: Create goal
+      tags:
+      - goals
+  /goals/{goalID}/tasks:
+    post:
+      consumes:
+      - application/json
+      description: Create a task under a goal. Only the goal owner can create tasks.
+      parameters:
+      - description: Goal ID
+        in: path
+        name: goalID
+        required: true
+        type: integer
+      - description: Task payload
+        in: body
+        name: payload
+        required: true
+        schema:
+          $ref: '#/definitions/types.CreateTaskPayload'
+      produces:
+      - application/json
+      responses:
+        "201":
+          description: Created
+          schema:
+            $ref: '#/definitions/types.Task'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/types.ErrorResponse'
+        "403":
+          description: Forbidden
+          schema:
+            $ref: '#/definitions/types.ErrorResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/types.ErrorResponse'
+      security:
+      - BearerAuth: []
+      summary: Create task
+      tags:
+      - tasks
+  /login:
+    post:
+      consumes:
+      - application/json
+      description: Authenticate a user and return a JWT token
+      parameters:
+      - description: Login payload
+        in: body
+        name: payload
+        required: true
+        schema:
+          $ref: '#/definitions/types.LoginUserPayload'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/types.LoginResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/types.ErrorResponse'
+      summary: Login
+      tags:
+      - auth
+  /register:
+    post:
+      consumes:
+      - application/json
+      description: Create a new user account
+      parameters:
+      - description: Registration payload
+        in: body
+        name: payload
+        required: true
+        schema:
+          $ref: '#/definitions/types.RegisterUserPayload'
+      produces:
+      - application/json
+      responses:
+        "201":
+          description: Created
+          schema:
+            additionalProperties: true
+            type: object
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/types.ErrorResponse'
+      summary: Register
+      tags:
+      - auth
+  /tasks/{taskID}/assign:
+    put:
+      consumes:
+      - application/json
+      description: Assign or unassign a task. Only the goal owner can assign tasks.
+      parameters:
+      - description: Task ID
+        in: path
+        name: taskID
+        required: true
+        type: integer
+      - description: Assignment payload
+        in: body
+        name: payload
+        required: true
+        schema:
+          $ref: '#/definitions/types.AssignTaskPayload'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/types.Task'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/types.ErrorResponse'
+        "403":
+          description: Forbidden
+          schema:
+            $ref: '#/definitions/types.ErrorResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/types.ErrorResponse'
+      security:
+      - BearerAuth: []
+      summary: Assign task
+      tags:
+      - tasks
+  /tasks/assigned:
+    get:
+      description: Get tasks assigned to the authenticated user
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            items:
+              $ref: '#/definitions/types.Task'
+            type: array
+        "403":
+          description: Forbidden
+          schema:
+            $ref: '#/definitions/types.ErrorResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/types.ErrorResponse'
+      security:
+      - BearerAuth: []
+      summary: Get assigned tasks
+      tags:
+      - tasks
+schemes:
+- http
+securityDefinitions:
+  BearerAuth:
+    in: header
+    name: Authorization
+    type: apiKey
+swagger: "2.0"

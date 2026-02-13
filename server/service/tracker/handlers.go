@@ -20,6 +20,19 @@ func NewHandler(store types.GoalTaskStore) *Handler {
 	return &Handler{store: store}
 }
 
+// HandleCreateGoal godoc
+// @Summary Create goal
+// @Description Create a goal owned by the authenticated user
+// @Tags goals
+// @Accept json
+// @Produce json
+// @Security BearerAuth
+// @Param payload body types.CreateGoalPayload true "Goal payload"
+// @Success 201 {object} types.Goal
+// @Failure 400 {object} types.ErrorResponse
+// @Failure 403 {object} types.ErrorResponse
+// @Failure 500 {object} types.ErrorResponse
+// @Router /goals [post]
 func (h *Handler) HandleCreateGoal(w http.ResponseWriter, r *http.Request) {
 	ownerID := auth.GetUserIDFromContext(r.Context())
 	if ownerID <= 0 {
@@ -48,6 +61,16 @@ func (h *Handler) HandleCreateGoal(w http.ResponseWriter, r *http.Request) {
 	utils.WriteJSON(w, http.StatusCreated, goal)
 }
 
+// HandleGetGoals godoc
+// @Summary Get goals
+// @Description Get all goals for the authenticated user with nested tasks
+// @Tags goals
+// @Produce json
+// @Security BearerAuth
+// @Success 200 {array} types.GoalWithTasks
+// @Failure 403 {object} types.ErrorResponse
+// @Failure 500 {object} types.ErrorResponse
+// @Router /goals [get]
 func (h *Handler) HandleGetGoals(w http.ResponseWriter, r *http.Request) {
 	ownerID := auth.GetUserIDFromContext(r.Context())
 	if ownerID <= 0 {
@@ -64,6 +87,20 @@ func (h *Handler) HandleGetGoals(w http.ResponseWriter, r *http.Request) {
 	utils.WriteJSON(w, http.StatusOK, goals)
 }
 
+// HandleCreateTask godoc
+// @Summary Create task
+// @Description Create a task under a goal. Only the goal owner can create tasks.
+// @Tags tasks
+// @Accept json
+// @Produce json
+// @Security BearerAuth
+// @Param goalID path int true "Goal ID"
+// @Param payload body types.CreateTaskPayload true "Task payload"
+// @Success 201 {object} types.Task
+// @Failure 400 {object} types.ErrorResponse
+// @Failure 403 {object} types.ErrorResponse
+// @Failure 500 {object} types.ErrorResponse
+// @Router /goals/{goalID}/tasks [post]
 func (h *Handler) HandleCreateTask(w http.ResponseWriter, r *http.Request) {
 	creatorID := auth.GetUserIDFromContext(r.Context())
 	if creatorID <= 0 {
@@ -102,6 +139,20 @@ func (h *Handler) HandleCreateTask(w http.ResponseWriter, r *http.Request) {
 	utils.WriteJSON(w, http.StatusCreated, task)
 }
 
+// HandleAssignTask godoc
+// @Summary Assign task
+// @Description Assign or unassign a task. Only the goal owner can assign tasks.
+// @Tags tasks
+// @Accept json
+// @Produce json
+// @Security BearerAuth
+// @Param taskID path int true "Task ID"
+// @Param payload body types.AssignTaskPayload true "Assignment payload"
+// @Success 200 {object} types.Task
+// @Failure 400 {object} types.ErrorResponse
+// @Failure 403 {object} types.ErrorResponse
+// @Failure 500 {object} types.ErrorResponse
+// @Router /tasks/{taskID}/assign [put]
 func (h *Handler) HandleAssignTask(w http.ResponseWriter, r *http.Request) {
 	requesterID := auth.GetUserIDFromContext(r.Context())
 	if requesterID <= 0 {
@@ -134,6 +185,16 @@ func (h *Handler) HandleAssignTask(w http.ResponseWriter, r *http.Request) {
 	utils.WriteJSON(w, http.StatusOK, task)
 }
 
+// HandleGetAssignedTasks godoc
+// @Summary Get assigned tasks
+// @Description Get tasks assigned to the authenticated user
+// @Tags tasks
+// @Produce json
+// @Security BearerAuth
+// @Success 200 {array} types.Task
+// @Failure 403 {object} types.ErrorResponse
+// @Failure 500 {object} types.ErrorResponse
+// @Router /tasks/assigned [get]
 func (h *Handler) HandleGetAssignedTasks(w http.ResponseWriter, r *http.Request) {
 	userID := auth.GetUserIDFromContext(r.Context())
 	if userID <= 0 {

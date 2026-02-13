@@ -1,0 +1,563 @@
+{
+    "schemes": [
+        "http"
+    ],
+    "swagger": "2.0",
+    "info": {
+        "description": "REST API for task tracking with goals and assignments",
+        "title": "Task Tracker API",
+        "contact": {},
+        "version": "1.0"
+    },
+    "basePath": "/api/v1",
+    "paths": {
+        "/goals": {
+            "get": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "Get all goals for the authenticated user with nested tasks",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "goals"
+                ],
+                "summary": "Get goals",
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "type": "array",
+                            "items": {
+                                "$ref": "#/definitions/types.GoalWithTasks"
+                            }
+                        }
+                    },
+                    "403": {
+                        "description": "Forbidden",
+                        "schema": {
+                            "$ref": "#/definitions/types.ErrorResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/types.ErrorResponse"
+                        }
+                    }
+                }
+            },
+            "post": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "Create a goal owned by the authenticated user",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "goals"
+                ],
+                "summary": "Create goal",
+                "parameters": [
+                    {
+                        "description": "Goal payload",
+                        "name": "payload",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/types.CreateGoalPayload"
+                        }
+                    }
+                ],
+                "responses": {
+                    "201": {
+                        "description": "Created",
+                        "schema": {
+                            "$ref": "#/definitions/types.Goal"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/types.ErrorResponse"
+                        }
+                    },
+                    "403": {
+                        "description": "Forbidden",
+                        "schema": {
+                            "$ref": "#/definitions/types.ErrorResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/types.ErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/goals/{goalID}/tasks": {
+            "post": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "Create a task under a goal. Only the goal owner can create tasks.",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "tasks"
+                ],
+                "summary": "Create task",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "description": "Goal ID",
+                        "name": "goalID",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "description": "Task payload",
+                        "name": "payload",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/types.CreateTaskPayload"
+                        }
+                    }
+                ],
+                "responses": {
+                    "201": {
+                        "description": "Created",
+                        "schema": {
+                            "$ref": "#/definitions/types.Task"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/types.ErrorResponse"
+                        }
+                    },
+                    "403": {
+                        "description": "Forbidden",
+                        "schema": {
+                            "$ref": "#/definitions/types.ErrorResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/types.ErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/login": {
+            "post": {
+                "description": "Authenticate a user and return a JWT token",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "auth"
+                ],
+                "summary": "Login",
+                "parameters": [
+                    {
+                        "description": "Login payload",
+                        "name": "payload",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/types.LoginUserPayload"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/types.LoginResponse"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/types.ErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/register": {
+            "post": {
+                "description": "Create a new user account",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "auth"
+                ],
+                "summary": "Register",
+                "parameters": [
+                    {
+                        "description": "Registration payload",
+                        "name": "payload",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/types.RegisterUserPayload"
+                        }
+                    }
+                ],
+                "responses": {
+                    "201": {
+                        "description": "Created",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/types.ErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/tasks/assigned": {
+            "get": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "Get tasks assigned to the authenticated user",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "tasks"
+                ],
+                "summary": "Get assigned tasks",
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "type": "array",
+                            "items": {
+                                "$ref": "#/definitions/types.Task"
+                            }
+                        }
+                    },
+                    "403": {
+                        "description": "Forbidden",
+                        "schema": {
+                            "$ref": "#/definitions/types.ErrorResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/types.ErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/tasks/{taskID}/assign": {
+            "put": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "Assign or unassign a task. Only the goal owner can assign tasks.",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "tasks"
+                ],
+                "summary": "Assign task",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "description": "Task ID",
+                        "name": "taskID",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "description": "Assignment payload",
+                        "name": "payload",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/types.AssignTaskPayload"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/types.Task"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/types.ErrorResponse"
+                        }
+                    },
+                    "403": {
+                        "description": "Forbidden",
+                        "schema": {
+                            "$ref": "#/definitions/types.ErrorResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/types.ErrorResponse"
+                        }
+                    }
+                }
+            }
+        }
+    },
+    "definitions": {
+        "types.AssignTaskPayload": {
+            "type": "object",
+            "properties": {
+                "assigneeId": {
+                    "type": "integer"
+                }
+            }
+        },
+        "types.CreateGoalPayload": {
+            "type": "object",
+            "required": [
+                "description",
+                "title"
+            ],
+            "properties": {
+                "description": {
+                    "type": "string",
+                    "maxLength": 2000,
+                    "minLength": 3
+                },
+                "title": {
+                    "type": "string",
+                    "maxLength": 255,
+                    "minLength": 3
+                }
+            }
+        },
+        "types.CreateTaskPayload": {
+            "type": "object",
+            "required": [
+                "description",
+                "title"
+            ],
+            "properties": {
+                "assigneeId": {
+                    "type": "integer"
+                },
+                "description": {
+                    "type": "string",
+                    "maxLength": 2000,
+                    "minLength": 3
+                },
+                "title": {
+                    "type": "string",
+                    "maxLength": 255,
+                    "minLength": 3
+                }
+            }
+        },
+        "types.ErrorResponse": {
+            "type": "object",
+            "properties": {
+                "error": {
+                    "type": "string"
+                }
+            }
+        },
+        "types.Goal": {
+            "type": "object",
+            "properties": {
+                "createdAt": {
+                    "type": "string"
+                },
+                "description": {
+                    "type": "string"
+                },
+                "id": {
+                    "type": "integer"
+                },
+                "ownerId": {
+                    "type": "integer"
+                },
+                "ownerName": {
+                    "type": "string"
+                },
+                "title": {
+                    "type": "string"
+                }
+            }
+        },
+        "types.GoalWithTasks": {
+            "type": "object",
+            "properties": {
+                "createdAt": {
+                    "type": "string"
+                },
+                "description": {
+                    "type": "string"
+                },
+                "id": {
+                    "type": "integer"
+                },
+                "ownerId": {
+                    "type": "integer"
+                },
+                "ownerName": {
+                    "type": "string"
+                },
+                "tasks": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/types.Task"
+                    }
+                },
+                "title": {
+                    "type": "string"
+                }
+            }
+        },
+        "types.LoginResponse": {
+            "type": "object",
+            "properties": {
+                "token": {
+                    "type": "string"
+                }
+            }
+        },
+        "types.LoginUserPayload": {
+            "type": "object",
+            "required": [
+                "email",
+                "password"
+            ],
+            "properties": {
+                "email": {
+                    "type": "string"
+                },
+                "password": {
+                    "type": "string"
+                }
+            }
+        },
+        "types.RegisterUserPayload": {
+            "type": "object",
+            "required": [
+                "email",
+                "firstName",
+                "lastName",
+                "password"
+            ],
+            "properties": {
+                "email": {
+                    "type": "string"
+                },
+                "firstName": {
+                    "type": "string"
+                },
+                "lastName": {
+                    "type": "string"
+                },
+                "password": {
+                    "type": "string",
+                    "maxLength": 130,
+                    "minLength": 3
+                }
+            }
+        },
+        "types.Task": {
+            "type": "object",
+            "properties": {
+                "assigneeId": {
+                    "type": "integer"
+                },
+                "assigneeName": {
+                    "type": "string"
+                },
+                "createdAt": {
+                    "type": "string"
+                },
+                "createdBy": {
+                    "type": "integer"
+                },
+                "createdByName": {
+                    "type": "string"
+                },
+                "description": {
+                    "type": "string"
+                },
+                "goalId": {
+                    "type": "integer"
+                },
+                "goalTitle": {
+                    "type": "string"
+                },
+                "id": {
+                    "type": "integer"
+                },
+                "status": {
+                    "type": "string"
+                },
+                "title": {
+                    "type": "string"
+                }
+            }
+        }
+    },
+    "securityDefinitions": {
+        "BearerAuth": {
+            "type": "apiKey",
+            "name": "Authorization",
+            "in": "header"
+        }
+    }
+}

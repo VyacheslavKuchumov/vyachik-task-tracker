@@ -9,6 +9,7 @@ import (
 
 	"github.com/go-chi/chi/v5"
 	"github.com/go-chi/chi/v5/middleware"
+	httpSwagger "github.com/swaggo/http-swagger/v2"
 )
 
 type Server struct {
@@ -26,6 +27,7 @@ func NewServer(addr string, db *sql.DB) *Server {
 func (s *Server) Run() error {
 	r := chi.NewRouter()
 	r.Use(middleware.Logger)
+	r.Get("/swagger/*", httpSwagger.Handler())
 
 	userStore := user.NewStore(s.db)
 	userHandler := user.NewHandler(userStore)

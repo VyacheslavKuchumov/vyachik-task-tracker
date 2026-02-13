@@ -2,7 +2,7 @@
 MIGRATION_DIR := cmd/migrate/migrations
 
 # Ensure 'migration' is marked as a phony target
-.PHONY: migration
+.PHONY: migration swagger
 
 clean:
 	@rm -rf bin
@@ -39,3 +39,6 @@ migrate-up:
 
 migrate-down:
 	@go run cmd/migrate/main.go down
+
+swagger:
+	@go run github.com/swaggo/swag/cmd/swag@latest init -g main.go -d cmd,service/user,service/tracker,types,utils -o docs --parseInternal
