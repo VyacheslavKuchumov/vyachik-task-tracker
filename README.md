@@ -33,6 +33,7 @@ Open:
 - `docs/ARCHITECTURE.md`: component and data flow
 - `docs/API.md`: API contract
 - `docs/OPERATIONS.md`: migrations, testing, troubleshooting
+- `docs/CONTRIBUTING.md`: branch, commit, and pull request guidelines
 
 ## Repository Structure
 

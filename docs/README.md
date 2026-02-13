@@ -8,6 +8,7 @@ This folder contains documentation for the full Task Tracker project.
 - `docs/ARCHITECTURE.md`: system design and data flow
 - `docs/API.md`: backend API contract
 - `docs/OPERATIONS.md`: migrations, tests, and troubleshooting
+- `docs/CONTRIBUTING.md`: branch strategy, commit messages, and pull request expectations
 
 ## Quick Start
 
