@@ -15,14 +15,27 @@ go install github.com/air-verse/air@latest
 
 From repository root:
 
+1. Point these DNS records to your server public IP:
+
+- `home.vyachik-dev.ru`
+- `home-server.vyachik-dev.ru`
+
+2. Set an ACME email for Let's Encrypt certificate registration:
+
+```bash
+export TRAEFIK_ACME_EMAIL=slavakuchumov@gmail.com
+```
+
+3. Start the stack:
+
 ```bash
 docker compose up -d --build --remove-orphans
 ```
 
 Services:
 
-- `web` at `http://localhost:3000`
-- `server` at `http://localhost:8000`
+- `web` at `https://home.vyachik-dev.ru`
+- `server` at `https://home-server.vyachik-dev.ru`
 - `postgres` at host port `5433`
 
 Stop:
@@ -97,3 +110,4 @@ Open `http://localhost:3000`.
 - `connect: connection refused` from backend: Postgres is not up on `5433`.
 - `permission denied` from protected APIs: missing/expired JWT header.
 - Frontend cannot reach backend in Docker: ensure `BACKEND_URL` points to `http://server:8000` inside container environment.
+- Let's Encrypt certificate not issued: ensure DNS A records are fully propagated for both domains and ports `80`/`443` are open on the host firewall.

@@ -1,4 +1,25 @@
 services:
+  traefik:
+    image: traefik:v3.1
+    container_name: task_tracker_traefik
+    restart: unless-stopped
+    command:
+      - --providers.docker=true
+      - --providers.docker.exposedbydefault=false
+      - --entrypoints.web.address=:80
+      - --entrypoints.websecure.address=:443
+      - --entrypoints.web.http.redirections.entrypoint.to=websecure
+      - --entrypoints.web.http.redirections.entrypoint.scheme=https
+      - --certificatesresolvers.letsencrypt.acme.tlschallenge=true
+      - --certificatesresolvers.letsencrypt.acme.email=${TRAEFIK_ACME_EMAIL:-slavakuchumov@gmail.com}
+      - --certificatesresolvers.letsencrypt.acme.storage=/letsencrypt/acme.json
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+      - traefik_letsencrypt:/letsencrypt
+
   postgres:
     image: postgres:16-alpine
     container_name: task_tracker_postgres
@@ -27,7 +48,7 @@ services:
       postgres:
         condition: service_healthy
     environment:
-      PUBLIC_HOST: http://localhost
+      PUBLIC_HOST: https://${TRAEFIK_API_HOST:-home-server.vyachik-dev.ru}
       PORT: :8000
       DB_USER: postgres
       DB_PASSWORD: postgres
@@ -37,8 +58,13 @@ services:
       DB_SSLMODE: disable
       JWT_EXP: 604800
       JWT_SECRET: CHANGE_ME
-    ports:
-      - "8000:8000"
+    labels:
+      - traefik.enable=true
+      - traefik.http.routers.task-tracker-api.rule=Host(`${TRAEFIK_API_HOST:-home-server.vyachik-dev.ru}`)
+      - traefik.http.routers.task-tracker-api.entrypoints=websecure
+      - traefik.http.routers.task-tracker-api.tls=true
+      - traefik.http.routers.task-tracker-api.tls.certresolver=letsencrypt
+      - traefik.http.services.task-tracker-api.loadbalancer.server.port=8000
 
   web:
     build:
@@ -55,8 +81,14 @@ services:
       NODE_ENV: production
       NITRO_HOST: 0.0.0.0
       NITRO_PORT: 3000
-    ports:
-      - "3000:3000"
+    labels:
+      - traefik.enable=true
+      - traefik.http.routers.task-tracker-web.rule=Host(`${TRAEFIK_WEB_HOST:-home.vyachik-dev.ru}`)
+      - traefik.http.routers.task-tracker-web.entrypoints=websecure
+      - traefik.http.routers.task-tracker-web.tls=true
+      - traefik.http.routers.task-tracker-web.tls.certresolver=letsencrypt
+      - traefik.http.services.task-tracker-web.loadbalancer.server.port=3000
 
 volumes:
   postgres_data:
+  traefik_letsencrypt:
