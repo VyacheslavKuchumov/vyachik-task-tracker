@@ -1,10 +1,11 @@
 <template>
   <UApp>
-    <div class="app-shell">
+    <div class="min-h-screen">
       <NavBar />
-      <main class="page-wrap">
+
+      <UContainer class="py-6 sm:py-8">
         <NuxtPage />
-      </main>
+      </UContainer>
     </div>
   </UApp>
 </template>
