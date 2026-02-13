@@ -70,8 +70,7 @@ services:
       - traefik.http.routers.task-tracker-api-http.rule=Host(`home-server.vyachik-dev.ru`)
       - traefik.http.routers.task-tracker-api-http.entrypoints=web
       - traefik.http.routers.task-tracker-api-http.middlewares=redirect-to-https
-    deploy:
-      replicas: 3
+
   web:
     build:
       context: ./web
