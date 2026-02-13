@@ -3,7 +3,6 @@ package server
 import (
 	"VyacheslavKuchumov/test-backend/service/tracker"
 	"VyacheslavKuchumov/test-backend/service/user"
-	frontend "VyacheslavKuchumov/test-backend/web"
 	"database/sql"
 	"log"
 	"net/http"
@@ -33,11 +32,11 @@ func (s *Server) Run() error {
 
 	trackerStore := tracker.NewStore(s.db)
 	trackerHandler := tracker.NewHandler(trackerStore)
-	webHandler := frontend.NewHandler(trackerStore)
 
-	user.RegisterRoutes(r, userHandler)
-	tracker.RegisterRoutes(r, trackerHandler, userStore)
-	frontend.RegisterRoutes(r, webHandler, userStore)
+	r.Route("/api/v1", func(api chi.Router) {
+		user.RegisterRoutes(api, userHandler)
+		tracker.RegisterRoutes(api, trackerHandler, userStore)
+	})
 
 	log.Println("Listening on", s.addr)
 	return http.ListenAndServe(s.addr, r)

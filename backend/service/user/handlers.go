@@ -7,7 +7,6 @@ import (
 	"VyacheslavKuchumov/test-backend/utils"
 	"fmt"
 	"net/http"
-	"net/url"
 
 	"github.com/go-playground/validator/v10"
 )
@@ -51,50 +50,6 @@ func (h *Handler) HandleRegister(w http.ResponseWriter, r *http.Request) {
 	}
 
 	utils.WriteJSON(w, http.StatusCreated, nil)
-}
-
-func (h *Handler) HandleWebLogin(w http.ResponseWriter, r *http.Request) {
-	if err := r.ParseForm(); err != nil {
-		http.Redirect(w, r, "/login?error="+url.QueryEscape("invalid form payload"), http.StatusSeeOther)
-		return
-	}
-
-	token, err := h.createSessionToken(types.LoginUserPayload{
-		Email:    r.FormValue("email"),
-		Password: r.FormValue("password"),
-	})
-	if err != nil {
-		http.Redirect(w, r, "/login?error="+url.QueryEscape(err.Error()), http.StatusSeeOther)
-		return
-	}
-
-	auth.SetAuthCookie(w, token)
-	http.Redirect(w, r, "/goals", http.StatusSeeOther)
-}
-
-func (h *Handler) HandleWebRegister(w http.ResponseWriter, r *http.Request) {
-	if err := r.ParseForm(); err != nil {
-		http.Redirect(w, r, "/register?error="+url.QueryEscape("invalid form payload"), http.StatusSeeOther)
-		return
-	}
-
-	err := h.registerUser(types.RegisterUserPayload{
-		FirstName: r.FormValue("firstName"),
-		LastName:  r.FormValue("lastName"),
-		Email:     r.FormValue("email"),
-		Password:  r.FormValue("password"),
-	})
-	if err != nil {
-		http.Redirect(w, r, "/register?error="+url.QueryEscape(err.Error()), http.StatusSeeOther)
-		return
-	}
-
-	http.Redirect(w, r, "/login?ok="+url.QueryEscape("registration successful"), http.StatusSeeOther)
-}
-
-func (h *Handler) HandleLogout(w http.ResponseWriter, r *http.Request) {
-	auth.ClearAuthCookie(w)
-	http.Redirect(w, r, "/login", http.StatusSeeOther)
 }
 
 func (h *Handler) registerUser(payload types.RegisterUserPayload) error {

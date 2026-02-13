@@ -49,40 +49,12 @@ func SetAuthCookie(w http.ResponseWriter, token string) {
 	})
 }
 
-func ClearAuthCookie(w http.ResponseWriter) {
-	http.SetCookie(w, &http.Cookie{
-		Name:     AuthCookieName,
-		Value:    "",
-		Path:     "/",
-		Expires:  time.Unix(0, 0),
-		MaxAge:   -1,
-		HttpOnly: true,
-		SameSite: http.SameSiteLaxMode,
-	})
-}
-
 func WithJWTAuth(handlerFunc http.HandlerFunc, store types.UserStore) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		userID, err := getUserIDFromRequest(r, store)
 		if err != nil {
 			log.Printf("Failed to authorize request: %v", err)
 			permissionDenied(w)
-			return
-		}
-
-		ctx := r.Context()
-		ctx = context.WithValue(ctx, UserKey, userID)
-		r = r.WithContext(ctx)
-
-		handlerFunc(w, r)
-	}
-}
-
-func WithJWTPageAuth(handlerFunc http.HandlerFunc, store types.UserStore) http.HandlerFunc {
-	return func(w http.ResponseWriter, r *http.Request) {
-		userID, err := getUserIDFromRequest(r, store)
-		if err != nil {
-			http.Redirect(w, r, "/login", http.StatusSeeOther)
 			return
 		}
 
