@@ -10,11 +10,25 @@ definitions:
       description:
         maxLength: 2000
         type: string
+      priority:
+        enum:
+        - high
+        - medium
+        - low
+        type: string
+      status:
+        enum:
+        - todo
+        - in_progress
+        - achieved
+        type: string
       title:
         maxLength: 255
         minLength: 3
         type: string
     required:
+    - priority
+    - status
     - title
     type: object
   types.CreateTaskPayload:
@@ -24,11 +38,18 @@ definitions:
       description:
         maxLength: 2000
         type: string
+      priority:
+        enum:
+        - high
+        - medium
+        - low
+        type: string
       title:
         maxLength: 255
         minLength: 3
         type: string
     required:
+    - priority
     - title
     type: object
   types.ErrorResponse:
@@ -48,6 +69,10 @@ definitions:
         type: integer
       ownerName:
         type: string
+      priority:
+        type: string
+      status:
+        type: string
       title:
         type: string
     type: object
@@ -62,6 +87,10 @@ definitions:
       ownerId:
         type: integer
       ownerName:
+        type: string
+      priority:
+        type: string
+      status:
         type: string
       tasks:
         items:
@@ -123,7 +152,9 @@ definitions:
         type: string
       id:
         type: integer
-      status:
+      isCompleted:
+        type: boolean
+      priority:
         type: string
       title:
         type: string
@@ -166,11 +197,13 @@ definitions:
       goalId:
         minimum: 1
         type: integer
-      status:
+      isCompleted:
+        type: boolean
+      priority:
         enum:
-        - todo
-        - in_progress
-        - done
+        - high
+        - medium
+        - low
         type: string
       title:
         maxLength: 255
@@ -178,7 +211,7 @@ definitions:
         type: string
     required:
     - goalId
-    - status
+    - priority
     - title
     type: object
   types.UserLookup:
@@ -733,7 +766,7 @@ paths:
       - users
   /users/tasks:
     get:
-      description: Get all users and their current assigned tasks (todo and in_progress)
+      description: Get all users and their current assigned tasks (not completed)
       produces:
       - application/json
       responses:

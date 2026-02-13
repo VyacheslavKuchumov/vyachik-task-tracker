@@ -40,13 +40,24 @@
       />
 
       <div v-else class="space-y-3">
-        <div class="flex flex-wrap gap-4 text-sm text-muted">
-          <span>Владелец: {{ goal.ownerName || auth.displayName }}</span>
-          <span>Задачи: {{ (goal.tasks || []).length }}</span>
+        <div class="flex flex-wrap items-center justify-between gap-3 text-sm text-muted">
+          <div class="flex flex-wrap gap-4">
+            <span>Владелец: {{ goal.ownerName || auth.displayName }}</span>
+            <span>Задачи: {{ visibleTasks.length }}</span>
+          </div>
+
+          <div class="flex items-center gap-2">
+            <UBadge :color="goalStatusColor(goal.status)" variant="soft">{{ goalStatusLabel(goal.status) }}</UBadge>
+            <UBadge :color="priorityColor(goal.priority)" variant="soft">{{ priorityLabel(goal.priority) }}</UBadge>
+            <label class="flex items-center gap-2 text-sm text-muted">
+              <input v-model="hideCompletedTasks" type="checkbox" class="h-4 w-4 rounded border-default" />
+              Скрыть выполненные
+            </label>
+          </div>
         </div>
 
         <UAlert
-          v-if="(goal.tasks || []).length === 0"
+          v-if="visibleTasks.length === 0"
           color="neutral"
           variant="soft"
           icon="i-lucide-list-todo"
@@ -54,7 +65,7 @@
           description="Создайте первую задачу для этой цели."
         />
 
-        <UCard v-for="task in goal.tasks" :key="task.id" variant="soft">
+        <UCard v-for="task in visibleTasks" :key="task.id" variant="soft">
           <template #header>
             <div class="flex flex-wrap items-start justify-between gap-3">
               <div class="space-y-1">
@@ -63,8 +74,11 @@
               </div>
 
               <div class="flex items-center gap-2">
-                <UBadge :color="statusColor(task.status)" variant="soft">
-                  {{ statusLabel(task.status) }}
+                <UBadge :color="completionColor(task.isCompleted)" variant="soft">
+                  {{ completionLabel(task.isCompleted) }}
+                </UBadge>
+                <UBadge :color="priorityColor(task.priority)" variant="soft">
+                  {{ priorityLabel(task.priority) }}
                 </UBadge>
                 <UButton icon="i-lucide-pencil" color="neutral" variant="soft" @click="openEditTask(task)">
                   Редактировать
@@ -101,6 +115,14 @@
             <UTextarea v-model="createTaskState.description" :rows="3" class="w-full" placeholder="Необязательно" />
           </UFormField>
 
+          <UFormField label="Приоритет" name="priority" required>
+            <select v-model="createTaskState.priority" class="w-full rounded-md border border-default bg-default p-2 text-sm">
+              <option value="high">Высокий</option>
+              <option value="medium">Средний</option>
+              <option value="low">Низкий</option>
+            </select>
+          </UFormField>
+
           <UFormField label="Исполнитель" name="assigneeId">
             <select v-model="createTaskState.assigneeId" class="w-full rounded-md border border-default bg-default p-2 text-sm">
               <option value="">Не назначен</option>
@@ -129,11 +151,11 @@
             <UTextarea v-model="editTaskState.description" :rows="3" class="w-full" placeholder="Необязательно" />
           </UFormField>
 
-          <UFormField label="Статус" name="status" required>
-            <select v-model="editTaskState.status" class="w-full rounded-md border border-default bg-default p-2 text-sm">
-              <option value="todo">К выполнению</option>
-              <option value="in_progress">В работе</option>
-              <option value="done">Готово</option>
+          <UFormField label="Приоритет" name="priority" required>
+            <select v-model="editTaskState.priority" class="w-full rounded-md border border-default bg-default p-2 text-sm">
+              <option value="high">Высокий</option>
+              <option value="medium">Средний</option>
+              <option value="low">Низкий</option>
             </select>
           </UFormField>
 
@@ -145,6 +167,11 @@
               </option>
             </select>
           </UFormField>
+
+          <label class="flex items-center gap-2 text-sm text-muted">
+            <input v-model="editTaskState.isCompleted" type="checkbox" class="h-4 w-4 rounded border-default" />
+            Задача выполнена
+          </label>
 
           <div class="flex justify-end gap-2">
             <UButton type="button" color="neutral" variant="soft" @click="editTaskOpen = false">Отмена</UButton>
@@ -172,20 +199,28 @@ const editTaskOpen = ref(false)
 const creatingTask = ref(false)
 const updatingTask = ref(false)
 const deletingTaskId = ref<number | null>(null)
+const hideCompletedTasks = ref(false)
 
 const usersLookup = computed(() => tracker.usersLookup || [])
+const visibleTasks = computed(() => {
+  const tasks = goal.value?.tasks || []
+  if (!hideCompletedTasks.value) return tasks
+  return tasks.filter((task: any) => !task.isCompleted)
+})
 
 const createTaskSchema = v.object({
   title: v.pipe(v.string(), v.minLength(3, 'Название задачи должно быть не короче 3 символов')),
   description: v.pipe(v.string(), v.maxLength(2000, 'Описание должно быть не длиннее 2000 символов')),
+  priority: v.pipe(v.string(), v.minLength(1, 'Приоритет обязателен')),
   assigneeId: v.optional(v.string())
 })
 
 const updateTaskSchema = v.object({
   title: v.pipe(v.string(), v.minLength(3, 'Название задачи должно быть не короче 3 символов')),
   description: v.pipe(v.string(), v.maxLength(2000, 'Описание должно быть не длиннее 2000 символов')),
-  status: v.pipe(v.string(), v.minLength(1, 'Статус обязателен')),
-  assigneeId: v.optional(v.string())
+  priority: v.pipe(v.string(), v.minLength(1, 'Приоритет обязателен')),
+  assigneeId: v.optional(v.string()),
+  isCompleted: v.boolean()
 })
 
 type CreateTaskSchema = v.InferOutput<typeof createTaskSchema>
@@ -194,27 +229,49 @@ type UpdateTaskSchema = v.InferOutput<typeof updateTaskSchema>
 const createTaskState = reactive<CreateTaskSchema>({
   title: '',
   description: '',
+  priority: 'medium',
   assigneeId: ''
 })
 
-const editTaskState = reactive<{ id: number | null; title: string; description: string; status: string; assigneeId: string }>({
+const editTaskState = reactive<{ id: number | null; title: string; description: string; priority: string; assigneeId: string; isCompleted: boolean }>({
   id: null,
   title: '',
   description: '',
-  status: 'todo',
-  assigneeId: ''
+  priority: 'medium',
+  assigneeId: '',
+  isCompleted: false
 })
 
 const goalId = computed(() => Number(route.params.goalId))
 
-function statusColor(status: string) {
-  if (status === 'done') return 'success'
+function priorityColor(priority: string) {
+  if (priority === 'high') return 'error'
+  if (priority === 'medium') return 'warning'
+  return 'neutral'
+}
+
+function priorityLabel(priority: string) {
+  if (priority === 'high') return 'Высокий'
+  if (priority === 'medium') return 'Средний'
+  return 'Низкий'
+}
+
+function completionColor(isCompleted: boolean) {
+  return isCompleted ? 'success' : 'neutral'
+}
+
+function completionLabel(isCompleted: boolean) {
+  return isCompleted ? 'Выполнена' : 'Не выполнена'
+}
+
+function goalStatusColor(status: string) {
+  if (status === 'achieved') return 'success'
   if (status === 'in_progress') return 'warning'
   return 'neutral'
 }
 
-function statusLabel(status: string) {
-  if (status === 'done') return 'Готово'
+function goalStatusLabel(status: string) {
+  if (status === 'achieved') return 'Достигнута'
   if (status === 'in_progress') return 'В работе'
   return 'К выполнению'
 }
@@ -285,6 +342,7 @@ async function onCreateTask(event: FormSubmitEvent<CreateTaskSchema>) {
       {
         title: event.data.title.trim(),
         description: event.data.description.trim(),
+        priority: event.data.priority,
         assigneeId
       },
       auth.authHeader()
@@ -292,6 +350,7 @@ async function onCreateTask(event: FormSubmitEvent<CreateTaskSchema>) {
 
     createTaskState.title = ''
     createTaskState.description = ''
+    createTaskState.priority = 'medium'
     createTaskState.assigneeId = ''
     createTaskOpen.value = false
 
@@ -311,8 +370,9 @@ function openEditTask(task: any) {
   editTaskState.id = task.id
   editTaskState.title = task.title
   editTaskState.description = task.description
-  editTaskState.status = task.status || 'todo'
+  editTaskState.priority = task.priority || 'medium'
   editTaskState.assigneeId = task.assigneeId ? String(task.assigneeId) : ''
+  editTaskState.isCompleted = Boolean(task.isCompleted)
   editTaskOpen.value = true
 }
 
@@ -330,7 +390,8 @@ async function onUpdateTask(event: FormSubmitEvent<UpdateTaskSchema>) {
         goalId: goalId.value,
         title: event.data.title.trim(),
         description: event.data.description.trim(),
-        status: event.data.status,
+        priority: event.data.priority,
+        isCompleted: event.data.isCompleted,
         assigneeId
       },
       auth.authHeader()

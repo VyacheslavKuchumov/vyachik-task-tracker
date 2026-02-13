@@ -101,21 +101,28 @@ test('user can register and complete goal/task flow', async ({ page }) => {
 
   await createTaskModal.getByLabel('Название задачи').fill(taskTitle)
   await createTaskModal.getByLabel('Описание').fill(taskDescription)
-  await createTaskModal.locator('select').first().selectOption({ label: fullName })
+  await createTaskModal.locator('select').first().selectOption('high')
+  await createTaskModal.locator('select').nth(1).selectOption({ label: fullName })
   await createTaskModal.getByRole('button', { name: 'Создать' }).click()
 
   await expect(createTaskModal).toBeHidden()
   await expect(page.getByText(taskTitle)).toBeVisible()
-  await expect(page.getByText('К выполнению')).toBeVisible()
+  await expect(page.getByText('Высокий')).toBeVisible()
+  await expect(page.getByText('Не выполнена')).toBeVisible()
 
   await page.getByRole('button', { name: 'Редактировать' }).first().click()
   const editTaskModal = page.locator('[role="dialog"]').filter({ hasText: 'Редактировать задачу' }).first()
   await expect(editTaskModal).toBeVisible()
 
-  await editTaskModal.locator('select').first().selectOption('in_progress')
+  await editTaskModal.locator('select').first().selectOption('medium')
+  await editTaskModal.getByLabel('Задача выполнена').check()
   await editTaskModal.getByRole('button', { name: 'Сохранить' }).click()
   await expect(editTaskModal).toBeHidden()
-  await expect(page.getByText('В работе')).toBeVisible()
+
+  await page.getByRole('button', { name: 'Редактировать' }).first().click()
+  await expect(editTaskModal).toBeVisible()
+  await expect(editTaskModal.getByLabel('Задача выполнена')).toBeChecked()
+  await editTaskModal.getByRole('button', { name: 'Отмена' }).click()
 
   await page.getByRole('link', { name: 'Главная', exact: true }).click()
   await expect(page).toHaveURL(/\/$/)
@@ -124,7 +131,7 @@ test('user can register and complete goal/task flow', async ({ page }) => {
   await page.getByRole('link', { name: 'Пользователи', exact: true }).click()
   await expect(page).toHaveURL(/\/users$/)
   await expect(page.getByText(fullName).first()).toBeVisible()
-  await expect(page.getByText(taskTitle)).toBeVisible()
+  await expect(page.getByText(taskTitle)).toHaveCount(0)
 })
 
 test('user can update profile and change password', async ({ page }) => {
@@ -146,7 +153,8 @@ test('user can update profile and change password', async ({ page }) => {
   await expect(page.getByText(`${updatedFirstName} ${updatedLastName}`)).toBeVisible()
 
   await page.getByLabel('Текущий пароль').fill(user.password)
-  await page.getByLabel('Новый пароль').fill(updatedPassword)
+  await page.getByRole('textbox', { name: 'Новый пароль*', exact: true }).fill(updatedPassword)
+  await page.getByRole('textbox', { name: 'Повторите новый пароль*', exact: true }).fill(updatedPassword)
   await page.getByRole('button', { name: 'Обновить пароль' }).click()
 
   await page.getByRole('button', { name: 'Выйти' }).click()

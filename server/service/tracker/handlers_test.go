@@ -22,6 +22,8 @@ func TestTrackerHandlers(t *testing.T) {
 		payload := types.CreateGoalPayload{
 			Title:       "x",
 			Description: "short",
+			Priority:    "medium",
+			Status:      "todo",
 		}
 		body, _ := json.Marshal(payload)
 		req := newRequestWithUser(http.MethodPost, "/api/v1/goals", body, 1)
@@ -37,6 +39,8 @@ func TestTrackerHandlers(t *testing.T) {
 		payload := types.CreateGoalPayload{
 			Title:       "Launch MVP",
 			Description: "Ship first version",
+			Priority:    "high",
+			Status:      "in_progress",
 		}
 		body, _ := json.Marshal(payload)
 		req := newRequestWithUser(http.MethodPost, "/api/v1/goals", body, 2)
@@ -52,6 +56,8 @@ func TestTrackerHandlers(t *testing.T) {
 		payload := types.CreateGoalPayload{
 			Title:       "Launch MVP",
 			Description: "",
+			Priority:    "low",
+			Status:      "todo",
 		}
 		body, _ := json.Marshal(payload)
 		req := newRequestWithUser(http.MethodPost, "/api/v1/goals", body, 2)
@@ -67,6 +73,7 @@ func TestTrackerHandlers(t *testing.T) {
 		payload := types.CreateTaskPayload{
 			Title:       "Break down tasks",
 			Description: "Create subtasks",
+			Priority:    "medium",
 		}
 		body, _ := json.Marshal(payload)
 		req := newRequestWithUser(http.MethodPost, "/api/v1/goals/wrong/tasks", body, 2)
@@ -85,6 +92,7 @@ func TestTrackerHandlers(t *testing.T) {
 		payload := types.CreateTaskPayload{
 			Title:       "Break down tasks",
 			Description: "",
+			Priority:    "high",
 		}
 		body, _ := json.Marshal(payload)
 		req := newRequestWithUser(http.MethodPost, "/api/v1/goals/1/tasks", body, 2)
@@ -116,6 +124,8 @@ func TestTrackerHandlers(t *testing.T) {
 		payload := types.CreateGoalPayload{
 			Title:       "Valid title",
 			Description: "Valid description",
+			Priority:    "medium",
+			Status:      "todo",
 		}
 		body, _ := json.Marshal(payload)
 		req := newRequestWithUser(http.MethodPut, "/api/v1/goals/wrong", body, 2)
@@ -195,6 +205,8 @@ func (m *mockGoalTaskStore) CreateGoal(ownerID int, payload types.CreateGoalPayl
 		ID:          1,
 		Title:       payload.Title,
 		Description: payload.Description,
+		Priority:    payload.Priority,
+		Status:      payload.Status,
 		OwnerID:     ownerID,
 		CreatedAt:   time.Now(),
 	}, nil
@@ -207,6 +219,8 @@ func (m *mockGoalTaskStore) GetGoalsByOwner(ownerID int) ([]*types.GoalWithTasks
 				ID:          1,
 				Title:       "Goal",
 				Description: "Desc",
+				Priority:    "medium",
+				Status:      "todo",
 				OwnerID:     ownerID,
 				CreatedAt:   time.Now(),
 			},
@@ -221,6 +235,8 @@ func (m *mockGoalTaskStore) GetGoalWithTasks(goalID, ownerID int) (*types.GoalWi
 			ID:          goalID,
 			Title:       "Goal",
 			Description: "Desc",
+			Priority:    "medium",
+			Status:      "todo",
 			OwnerID:     ownerID,
 			CreatedAt:   time.Now(),
 		},
@@ -233,6 +249,8 @@ func (m *mockGoalTaskStore) UpdateGoal(goalID, ownerID int, payload types.Create
 		ID:          goalID,
 		Title:       payload.Title,
 		Description: payload.Description,
+		Priority:    payload.Priority,
+		Status:      payload.Status,
 		OwnerID:     ownerID,
 		CreatedAt:   time.Now(),
 	}, nil
@@ -248,7 +266,8 @@ func (m *mockGoalTaskStore) CreateTask(goalID, creatorID int, payload types.Crea
 		GoalID:      goalID,
 		Title:       payload.Title,
 		Description: payload.Description,
-		Status:      "todo",
+		Priority:    payload.Priority,
+		IsCompleted: false,
 		AssigneeID:  payload.AssigneeID,
 		CreatedBy:   creatorID,
 		CreatedAt:   time.Now(),
@@ -261,7 +280,8 @@ func (m *mockGoalTaskStore) UpdateTask(taskID, requesterID int, payload types.Up
 		GoalID:      payload.GoalID,
 		Title:       payload.Title,
 		Description: payload.Description,
-		Status:      payload.Status,
+		Priority:    payload.Priority,
+		IsCompleted: payload.IsCompleted,
 		AssigneeID:  payload.AssigneeID,
 		CreatedBy:   requesterID,
 		CreatedAt:   time.Now(),
@@ -278,26 +298,28 @@ func (m *mockGoalTaskStore) AssignTask(taskID, requesterID int, payload types.As
 	}
 
 	return &types.Task{
-		ID:         taskID,
-		GoalID:     1,
-		Title:      "task",
-		Status:     "todo",
-		AssigneeID: payload.AssigneeID,
-		CreatedBy:  requesterID,
-		CreatedAt:  time.Now(),
+		ID:          taskID,
+		GoalID:      1,
+		Title:       "task",
+		Priority:    "medium",
+		IsCompleted: false,
+		AssigneeID:  payload.AssigneeID,
+		CreatedBy:   requesterID,
+		CreatedAt:   time.Now(),
 	}, nil
 }
 
 func (m *mockGoalTaskStore) GetAssignedTasks(userID int) ([]*types.Task, error) {
 	return []*types.Task{
 		{
-			ID:         1,
-			GoalID:     1,
-			Title:      "Task A",
-			Status:     "todo",
-			AssigneeID: &userID,
-			CreatedBy:  2,
-			CreatedAt:  time.Now(),
+			ID:          1,
+			GoalID:      1,
+			Title:       "Task A",
+			Priority:    "high",
+			IsCompleted: false,
+			AssigneeID:  &userID,
+			CreatedBy:   2,
+			CreatedAt:   time.Now(),
 		},
 	}, nil
 }
@@ -315,7 +337,8 @@ func (m *mockGoalTaskStore) GetUsersWithCurrentTasks() ([]*types.UserTasksBoard,
 					GoalTitle:     "Launch MVP",
 					Title:         "Ship frontend",
 					Description:   "Finish dashboard",
-					Status:        "in_progress",
+					Priority:      "medium",
+					IsCompleted:   false,
 					AssigneeName:  "Alice Doe",
 					CreatedBy:     2,
 					CreatedByName: "Bob Doe",

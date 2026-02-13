@@ -21,11 +21,13 @@ func NewStore(db *sql.DB) *Store {
 
 func (s *Store) CreateGoal(ownerID int, payload types.CreateGoalPayload) (*types.Goal, error) {
 	row := s.db.QueryRow(
-		`INSERT INTO goals (title, description, owner_id)
-		 VALUES ($1, $2, $3)
-		 RETURNING id, title, description, owner_id, created_at`,
+		`INSERT INTO goals (title, description, priority, status, owner_id)
+		 VALUES ($1, $2, $3, $4, $5)
+		 RETURNING id, title, description, priority, status, owner_id, created_at`,
 		payload.Title,
 		payload.Description,
+		normalizePriority(payload.Priority),
+		normalizeGoalStatus(payload.Status),
 		ownerID,
 	)
 	return scanRowIntoGoal(row)
@@ -34,11 +36,16 @@ func (s *Store) CreateGoal(ownerID int, payload types.CreateGoalPayload) (*types
 func (s *Store) UpdateGoal(goalID, ownerID int, payload types.CreateGoalPayload) (*types.Goal, error) {
 	row := s.db.QueryRow(
 		`UPDATE goals
-		 SET title = $1, description = $2
-		 WHERE id = $3 AND owner_id = $4
-		 RETURNING id, title, description, owner_id, created_at`,
+		 SET title = $1,
+		     description = $2,
+		     priority = $3,
+		     status = $4
+		 WHERE id = $5 AND owner_id = $6
+		 RETURNING id, title, description, priority, status, owner_id, created_at`,
 		payload.Title,
 		payload.Description,
+		normalizePriority(payload.Priority),
+		normalizeGoalStatus(payload.Status),
 		goalID,
 		ownerID,
 	)
@@ -80,6 +87,8 @@ func (s *Store) GetGoalsByOwner(ownerID int) ([]*types.GoalWithTasks, error) {
 			g.id,
 			g.title,
 			g.description,
+			g.priority,
+			g.status,
 			g.owner_id,
 			g.created_at,
 			TRIM(CONCAT(owner_u.first_name, ' ', owner_u.last_name)) AS owner_name,
@@ -87,7 +96,8 @@ func (s *Store) GetGoalsByOwner(ownerID int) ([]*types.GoalWithTasks, error) {
 			t.goal_id,
 			t.title,
 			t.description,
-			t.status,
+			t.priority,
+			t.is_completed,
 			t.assignee_id,
 			t.created_by,
 			t.created_at,
@@ -99,7 +109,13 @@ func (s *Store) GetGoalsByOwner(ownerID int) ([]*types.GoalWithTasks, error) {
 		LEFT JOIN users assignee_u ON assignee_u.id = t.assignee_id
 		LEFT JOIN users creator_u ON creator_u.id = t.created_by
 		WHERE g.owner_id = $1
-		ORDER BY g.created_at DESC, t.created_at ASC`,
+		ORDER BY
+			CASE WHEN g.status = 'achieved' THEN 1 ELSE 0 END,
+			CASE g.priority WHEN 'high' THEN 0 WHEN 'medium' THEN 1 ELSE 2 END,
+			g.created_at DESC,
+			CASE WHEN t.is_completed THEN 1 ELSE 0 END,
+			CASE t.priority WHEN 'high' THEN 0 WHEN 'medium' THEN 1 WHEN 'low' THEN 2 ELSE 3 END,
+			t.created_at ASC`,
 		ownerID,
 	)
 	if err != nil {
@@ -118,7 +134,8 @@ func (s *Store) GetGoalsByOwner(ownerID int) ([]*types.GoalWithTasks, error) {
 			taskGoalID       sql.NullInt64
 			taskTitle        sql.NullString
 			taskDesc         sql.NullString
-			taskStatus       sql.NullString
+			taskPriority     sql.NullString
+			taskIsCompleted  sql.NullBool
 			assigneeID       sql.NullInt64
 			createdBy        sql.NullInt64
 			taskAt           sql.NullTime
@@ -130,6 +147,8 @@ func (s *Store) GetGoalsByOwner(ownerID int) ([]*types.GoalWithTasks, error) {
 			&goal.ID,
 			&goal.Title,
 			&goal.Description,
+			&goal.Priority,
+			&goal.Status,
 			&goal.OwnerID,
 			&goal.CreatedAt,
 			&goalOwnerName,
@@ -137,7 +156,8 @@ func (s *Store) GetGoalsByOwner(ownerID int) ([]*types.GoalWithTasks, error) {
 			&taskGoalID,
 			&taskTitle,
 			&taskDesc,
-			&taskStatus,
+			&taskPriority,
+			&taskIsCompleted,
 			&assigneeID,
 			&createdBy,
 			&taskAt,
@@ -166,7 +186,8 @@ func (s *Store) GetGoalsByOwner(ownerID int) ([]*types.GoalWithTasks, error) {
 				GoalTitle:     current.Title,
 				Title:         taskTitle.String,
 				Description:   taskDesc.String,
-				Status:        taskStatus.String,
+				Priority:      normalizePriority(taskPriority.String),
+				IsCompleted:   taskIsCompleted.Valid && taskIsCompleted.Bool,
 				CreatedBy:     int(createdBy.Int64),
 				CreatedByName: taskCreatorName.String,
 				CreatedAt:     taskAt.Time,
@@ -191,6 +212,8 @@ func (s *Store) GetGoalWithTasks(goalID, ownerID int) (*types.GoalWithTasks, err
 			g.id,
 			g.title,
 			g.description,
+			g.priority,
+			g.status,
 			g.owner_id,
 			g.created_at,
 			TRIM(CONCAT(owner_u.first_name, ' ', owner_u.last_name)) AS owner_name,
@@ -198,7 +221,8 @@ func (s *Store) GetGoalWithTasks(goalID, ownerID int) (*types.GoalWithTasks, err
 			t.goal_id,
 			t.title,
 			t.description,
-			t.status,
+			t.priority,
+			t.is_completed,
 			t.assignee_id,
 			t.created_by,
 			t.created_at,
@@ -210,7 +234,10 @@ func (s *Store) GetGoalWithTasks(goalID, ownerID int) (*types.GoalWithTasks, err
 		LEFT JOIN users assignee_u ON assignee_u.id = t.assignee_id
 		LEFT JOIN users creator_u ON creator_u.id = t.created_by
 		WHERE g.id = $1 AND g.owner_id = $2
-		ORDER BY t.created_at ASC`,
+		ORDER BY
+			CASE WHEN t.is_completed THEN 1 ELSE 0 END,
+			CASE t.priority WHEN 'high' THEN 0 WHEN 'medium' THEN 1 WHEN 'low' THEN 2 ELSE 3 END,
+			t.created_at ASC`,
 		goalID,
 		ownerID,
 	)
@@ -233,7 +260,8 @@ func (s *Store) GetGoalWithTasks(goalID, ownerID int) (*types.GoalWithTasks, err
 			taskGoalID       sql.NullInt64
 			taskTitle        sql.NullString
 			taskDesc         sql.NullString
-			taskStatus       sql.NullString
+			taskPriority     sql.NullString
+			taskIsCompleted  sql.NullBool
 			assigneeID       sql.NullInt64
 			createdBy        sql.NullInt64
 			taskAt           sql.NullTime
@@ -245,6 +273,8 @@ func (s *Store) GetGoalWithTasks(goalID, ownerID int) (*types.GoalWithTasks, err
 			&currentGoal.ID,
 			&currentGoal.Title,
 			&currentGoal.Description,
+			&currentGoal.Priority,
+			&currentGoal.Status,
 			&currentGoal.OwnerID,
 			&currentGoal.CreatedAt,
 			&goalOwnerName,
@@ -252,7 +282,8 @@ func (s *Store) GetGoalWithTasks(goalID, ownerID int) (*types.GoalWithTasks, err
 			&taskGoalID,
 			&taskTitle,
 			&taskDesc,
-			&taskStatus,
+			&taskPriority,
+			&taskIsCompleted,
 			&assigneeID,
 			&createdBy,
 			&taskAt,
@@ -279,7 +310,8 @@ func (s *Store) GetGoalWithTasks(goalID, ownerID int) (*types.GoalWithTasks, err
 				GoalTitle:     goal.Title,
 				Title:         taskTitle.String,
 				Description:   taskDesc.String,
-				Status:        taskStatus.String,
+				Priority:      normalizePriority(taskPriority.String),
+				IsCompleted:   taskIsCompleted.Valid && taskIsCompleted.Bool,
 				CreatedBy:     int(createdBy.Int64),
 				CreatedByName: taskCreatorName.String,
 				CreatedAt:     taskAt.Time,
@@ -314,7 +346,8 @@ func (s *Store) GetUsersWithCurrentTasks() ([]*types.UserTasksBoard, error) {
 			t.goal_id,
 			t.title,
 			t.description,
-			t.status,
+			t.priority,
+			t.is_completed,
 			t.assignee_id,
 			t.created_by,
 			t.created_at,
@@ -324,11 +357,16 @@ func (s *Store) GetUsersWithCurrentTasks() ([]*types.UserTasksBoard, error) {
 		FROM users u
 		LEFT JOIN tasks t
 			ON t.assignee_id = u.id
-			AND t.status IN ('todo', 'in_progress')
+			AND t.is_completed = FALSE
 		LEFT JOIN goals g ON g.id = t.goal_id
 		LEFT JOIN users assignee_u ON assignee_u.id = t.assignee_id
 		LEFT JOIN users creator_u ON creator_u.id = t.created_by
-		ORDER BY u.first_name, u.last_name, u.id, t.created_at DESC`,
+		ORDER BY
+			u.first_name,
+			u.last_name,
+			u.id,
+			CASE t.priority WHEN 'high' THEN 0 WHEN 'medium' THEN 1 WHEN 'low' THEN 2 ELSE 3 END,
+			t.created_at DESC`,
 	)
 	if err != nil {
 		return nil, err
@@ -348,7 +386,8 @@ func (s *Store) GetUsersWithCurrentTasks() ([]*types.UserTasksBoard, error) {
 			taskGoalID       sql.NullInt64
 			taskTitle        sql.NullString
 			taskDesc         sql.NullString
-			taskStatus       sql.NullString
+			taskPriority     sql.NullString
+			taskIsCompleted  sql.NullBool
 			assigneeID       sql.NullInt64
 			createdBy        sql.NullInt64
 			taskAt           sql.NullTime
@@ -365,7 +404,8 @@ func (s *Store) GetUsersWithCurrentTasks() ([]*types.UserTasksBoard, error) {
 			&taskGoalID,
 			&taskTitle,
 			&taskDesc,
-			&taskStatus,
+			&taskPriority,
+			&taskIsCompleted,
 			&assigneeID,
 			&createdBy,
 			&taskAt,
@@ -395,7 +435,8 @@ func (s *Store) GetUsersWithCurrentTasks() ([]*types.UserTasksBoard, error) {
 				GoalTitle:   taskGoalTitle.String,
 				Title:       taskTitle.String,
 				Description: taskDesc.String,
-				Status:      taskStatus.String,
+				Priority:    normalizePriority(taskPriority.String),
+				IsCompleted: taskIsCompleted.Valid && taskIsCompleted.Bool,
 				CreatedBy:   int(createdBy.Int64),
 				CreatedAt:   taskAt.Time,
 			}
@@ -418,14 +459,15 @@ func (s *Store) GetUsersWithCurrentTasks() ([]*types.UserTasksBoard, error) {
 
 func (s *Store) CreateTask(goalID, creatorID int, payload types.CreateTaskPayload) (*types.Task, error) {
 	row := s.db.QueryRow(
-		`INSERT INTO tasks (goal_id, title, description, assignee_id, created_by)
-		 SELECT g.id, $2, $3, $4, $5
+		`INSERT INTO tasks (goal_id, title, description, priority, assignee_id, created_by)
+		 SELECT g.id, $2, $3, $4, $5, $6
 		 FROM goals g
-		 WHERE g.id = $1 AND g.owner_id = $5
-		 RETURNING id, goal_id, title, description, status, assignee_id, created_by, created_at`,
+		 WHERE g.id = $1 AND g.owner_id = $6
+		 RETURNING id, goal_id, title, description, priority, is_completed, assignee_id, created_by, created_at`,
 		goalID,
 		payload.Title,
 		payload.Description,
+		normalizePriority(payload.Priority),
 		payload.AssigneeID,
 		creatorID,
 	)
@@ -445,19 +487,21 @@ func (s *Store) UpdateTask(taskID, requesterID int, payload types.UpdateTaskPayl
 		 SET goal_id = $1,
 		     title = $2,
 		     description = $3,
-		     status = $4,
-		     assignee_id = $5
+		     priority = $4,
+		     is_completed = $5,
+		     assignee_id = $6
 		 FROM goals current_goal, goals new_goal
-		 WHERE t.id = $6
+		 WHERE t.id = $7
 		   AND t.goal_id = current_goal.id
-		   AND current_goal.owner_id = $7
+		   AND current_goal.owner_id = $8
 		   AND new_goal.id = $1
-		   AND new_goal.owner_id = $7
-		 RETURNING t.id, t.goal_id, t.title, t.description, t.status, t.assignee_id, t.created_by, t.created_at`,
+		   AND new_goal.owner_id = $8
+		 RETURNING t.id, t.goal_id, t.title, t.description, t.priority, t.is_completed, t.assignee_id, t.created_by, t.created_at`,
 		payload.GoalID,
 		payload.Title,
 		payload.Description,
-		payload.Status,
+		normalizePriority(payload.Priority),
+		payload.IsCompleted,
 		payload.AssigneeID,
 		taskID,
 		requesterID,
@@ -503,7 +547,7 @@ func (s *Store) AssignTask(taskID, requesterID int, payload types.AssignTaskPayl
 		 SET assignee_id = $1
 		 FROM goals g
 		 WHERE t.goal_id = g.id AND t.id = $2 AND g.owner_id = $3
-		 RETURNING t.id, t.goal_id, t.title, t.description, t.status, t.assignee_id, t.created_by, t.created_at`,
+		 RETURNING t.id, t.goal_id, t.title, t.description, t.priority, t.is_completed, t.assignee_id, t.created_by, t.created_at`,
 		payload.AssigneeID,
 		taskID,
 		requesterID,
@@ -526,7 +570,8 @@ func (s *Store) GetAssignedTasks(userID int) ([]*types.Task, error) {
 			t.goal_id,
 			t.title,
 			t.description,
-			t.status,
+			t.priority,
+			t.is_completed,
 			t.assignee_id,
 			t.created_by,
 			t.created_at,
@@ -538,7 +583,10 @@ func (s *Store) GetAssignedTasks(userID int) ([]*types.Task, error) {
 		 LEFT JOIN users assignee_u ON assignee_u.id = t.assignee_id
 		 LEFT JOIN users creator_u ON creator_u.id = t.created_by
 		 WHERE t.assignee_id = $1
-		 ORDER BY t.created_at DESC`,
+		 ORDER BY
+			CASE WHEN t.is_completed THEN 1 ELSE 0 END,
+			CASE t.priority WHEN 'high' THEN 0 WHEN 'medium' THEN 1 ELSE 2 END,
+			t.created_at DESC`,
 		userID,
 	)
 	if err != nil {
@@ -586,7 +634,7 @@ type rowScanner interface {
 
 func scanRowIntoGoal(row rowScanner) (*types.Goal, error) {
 	g := new(types.Goal)
-	if err := row.Scan(&g.ID, &g.Title, &g.Description, &g.OwnerID, &g.CreatedAt); err != nil {
+	if err := row.Scan(&g.ID, &g.Title, &g.Description, &g.Priority, &g.Status, &g.OwnerID, &g.CreatedAt); err != nil {
 		return nil, err
 	}
 	return g, nil
@@ -600,13 +648,15 @@ func scanRowIntoTask(row rowScanner) (*types.Task, error) {
 		&task.GoalID,
 		&task.Title,
 		&task.Description,
-		&task.Status,
+		&task.Priority,
+		&task.IsCompleted,
 		&assigneeID,
 		&task.CreatedBy,
 		&task.CreatedAt,
 	); err != nil {
 		return nil, err
 	}
+	task.Priority = normalizePriority(task.Priority)
 	if assigneeID.Valid {
 		value := int(assigneeID.Int64)
 		task.AssigneeID = &value
@@ -624,7 +674,8 @@ func scanRowIntoTaskWithLookups(row rowScanner) (*types.Task, error) {
 		&task.GoalID,
 		&task.Title,
 		&task.Description,
-		&task.Status,
+		&task.Priority,
+		&task.IsCompleted,
 		&assigneeID,
 		&task.CreatedBy,
 		&task.CreatedAt,
@@ -634,6 +685,7 @@ func scanRowIntoTaskWithLookups(row rowScanner) (*types.Task, error) {
 	); err != nil {
 		return nil, err
 	}
+	task.Priority = normalizePriority(task.Priority)
 	if assigneeID.Valid {
 		value := int(assigneeID.Int64)
 		task.AssigneeID = &value
@@ -645,4 +697,22 @@ func scanRowIntoTaskWithLookups(row rowScanner) (*types.Task, error) {
 		task.CreatedByName = creatorName.String
 	}
 	return task, nil
+}
+
+func normalizePriority(priority string) string {
+	switch priority {
+	case "high", "medium", "low":
+		return priority
+	default:
+		return "medium"
+	}
+}
+
+func normalizeGoalStatus(status string) string {
+	switch status {
+	case "todo", "in_progress", "achieved":
+		return status
+	default:
+		return "todo"
+	}
 }

@@ -22,6 +22,8 @@ func (s stubScanner) Scan(dest ...any) error {
 			*d = s.values[i].(int)
 		case *string:
 			*d = s.values[i].(string)
+		case *bool:
+			*d = s.values[i].(bool)
 		case *time.Time:
 			*d = s.values[i].(time.Time)
 		case *sql.NullInt64:
@@ -36,12 +38,12 @@ func (s stubScanner) Scan(dest ...any) error {
 func TestScanRowIntoGoal(t *testing.T) {
 	now := time.Now()
 	goal, err := scanRowIntoGoal(stubScanner{
-		values: []any{1, "Build app", "Description", 2, now},
+		values: []any{1, "Build app", "Description", "high", "in_progress", 2, now},
 	})
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
-	if goal.ID != 1 || goal.OwnerID != 2 {
+	if goal.ID != 1 || goal.OwnerID != 2 || goal.Priority != "high" || goal.Status != "in_progress" {
 		t.Fatalf("unexpected goal data: %+v", goal)
 	}
 }
@@ -54,7 +56,8 @@ func TestScanRowIntoTask(t *testing.T) {
 			2,
 			"Task title",
 			"Task description",
-			"todo",
+			"low",
+			true,
 			sql.NullInt64{Int64: 4, Valid: true},
 			3,
 			now,
@@ -64,7 +67,7 @@ func TestScanRowIntoTask(t *testing.T) {
 		t.Fatalf("unexpected error: %v", err)
 	}
 
-	if task.ID != 1 || task.GoalID != 2 || task.AssigneeID == nil || *task.AssigneeID != 4 {
+	if task.ID != 1 || task.GoalID != 2 || !task.IsCompleted || task.Priority != "low" || task.AssigneeID == nil || *task.AssigneeID != 4 {
 		t.Fatalf("unexpected task data: %+v", task)
 	}
 }

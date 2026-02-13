@@ -30,6 +30,8 @@ type Goal struct {
 	ID          int       `json:"id"`
 	Title       string    `json:"title"`
 	Description string    `json:"description"`
+	Priority    string    `json:"priority"`
+	Status      string    `json:"status"`
 	OwnerID     int       `json:"ownerId"`
 	OwnerName   string    `json:"ownerName,omitempty"`
 	CreatedAt   time.Time `json:"createdAt"`
@@ -43,6 +45,8 @@ type GoalWithTasks struct {
 type CreateGoalPayload struct {
 	Title       string `json:"title" validate:"required,min=3,max=255"`
 	Description string `json:"description" validate:"max=2000"`
+	Priority    string `json:"priority" validate:"required,oneof=high medium low"`
+	Status      string `json:"status" validate:"required,oneof=todo in_progress achieved"`
 }
 
 type Task struct {
@@ -51,7 +55,8 @@ type Task struct {
 	GoalTitle     string    `json:"goalTitle,omitempty"`
 	Title         string    `json:"title"`
 	Description   string    `json:"description"`
-	Status        string    `json:"status"`
+	Priority      string    `json:"priority"`
+	IsCompleted   bool      `json:"isCompleted"`
 	AssigneeID    *int      `json:"assigneeId,omitempty"`
 	AssigneeName  string    `json:"assigneeName,omitempty"`
 	CreatedBy     int       `json:"createdBy"`
@@ -62,6 +67,7 @@ type Task struct {
 type CreateTaskPayload struct {
 	Title       string `json:"title" validate:"required,min=3,max=255"`
 	Description string `json:"description" validate:"max=2000"`
+	Priority    string `json:"priority" validate:"required,oneof=high medium low"`
 	AssigneeID  *int   `json:"assigneeId,omitempty"`
 }
 
@@ -69,7 +75,8 @@ type UpdateTaskPayload struct {
 	GoalID      int    `json:"goalId" validate:"required,min=1"`
 	Title       string `json:"title" validate:"required,min=3,max=255"`
 	Description string `json:"description" validate:"max=2000"`
-	Status      string `json:"status" validate:"required,oneof=todo in_progress done"`
+	Priority    string `json:"priority" validate:"required,oneof=high medium low"`
+	IsCompleted bool   `json:"isCompleted"`
 	AssigneeID  *int   `json:"assigneeId,omitempty"`
 }
 

@@ -824,7 +824,7 @@ const docTemplate = `{
                         "BearerAuth": []
                     }
                 ],
-                "description": "Get all users and their current assigned tasks (todo and in_progress)",
+                "description": "Get all users and their current assigned tasks (not completed)",
                 "produces": [
                     "application/json"
                 ],
@@ -870,12 +870,30 @@ const docTemplate = `{
         "types.CreateGoalPayload": {
             "type": "object",
             "required": [
+                "priority",
+                "status",
                 "title"
             ],
             "properties": {
                 "description": {
                     "type": "string",
                     "maxLength": 2000
+                },
+                "priority": {
+                    "type": "string",
+                    "enum": [
+                        "high",
+                        "medium",
+                        "low"
+                    ]
+                },
+                "status": {
+                    "type": "string",
+                    "enum": [
+                        "todo",
+                        "in_progress",
+                        "achieved"
+                    ]
                 },
                 "title": {
                     "type": "string",
@@ -887,6 +905,7 @@ const docTemplate = `{
         "types.CreateTaskPayload": {
             "type": "object",
             "required": [
+                "priority",
                 "title"
             ],
             "properties": {
@@ -896,6 +915,14 @@ const docTemplate = `{
                 "description": {
                     "type": "string",
                     "maxLength": 2000
+                },
+                "priority": {
+                    "type": "string",
+                    "enum": [
+                        "high",
+                        "medium",
+                        "low"
+                    ]
                 },
                 "title": {
                     "type": "string",
@@ -930,6 +957,12 @@ const docTemplate = `{
                 "ownerName": {
                     "type": "string"
                 },
+                "priority": {
+                    "type": "string"
+                },
+                "status": {
+                    "type": "string"
+                },
                 "title": {
                     "type": "string"
                 }
@@ -951,6 +984,12 @@ const docTemplate = `{
                     "type": "integer"
                 },
                 "ownerName": {
+                    "type": "string"
+                },
+                "priority": {
+                    "type": "string"
+                },
+                "status": {
                     "type": "string"
                 },
                 "tasks": {
@@ -1042,7 +1081,10 @@ const docTemplate = `{
                 "id": {
                     "type": "integer"
                 },
-                "status": {
+                "isCompleted": {
+                    "type": "boolean"
+                },
+                "priority": {
                     "type": "string"
                 },
                 "title": {
@@ -1092,7 +1134,7 @@ const docTemplate = `{
             "type": "object",
             "required": [
                 "goalId",
-                "status",
+                "priority",
                 "title"
             ],
             "properties": {
@@ -1107,12 +1149,15 @@ const docTemplate = `{
                     "type": "integer",
                     "minimum": 1
                 },
-                "status": {
+                "isCompleted": {
+                    "type": "boolean"
+                },
+                "priority": {
                     "type": "string",
                     "enum": [
-                        "todo",
-                        "in_progress",
-                        "done"
+                        "high",
+                        "medium",
+                        "low"
                     ]
                 },
                 "title": {

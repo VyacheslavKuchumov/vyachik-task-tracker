@@ -44,6 +44,10 @@
           <UInput v-model="passwordState.newPassword" type="password" class="w-full" />
         </UFormField>
 
+        <UFormField label="Повторите новый пароль" name="confirmNewPassword" required>
+          <UInput v-model="passwordState.confirmNewPassword" type="password" class="w-full" />
+        </UFormField>
+
         <UButton type="submit" color="primary" :loading="changingPassword">
           Обновить пароль
         </UButton>
@@ -69,7 +73,8 @@ const profileSchema = v.object({
 
 const passwordSchema = v.object({
   currentPassword: v.pipe(v.string(), v.minLength(3, 'Текущий пароль обязателен')),
-  newPassword: v.pipe(v.string(), v.minLength(3, 'Новый пароль должен быть не короче 3 символов'))
+  newPassword: v.pipe(v.string(), v.minLength(3, 'Новый пароль должен быть не короче 3 символов')),
+  confirmNewPassword: v.pipe(v.string(), v.minLength(3, 'Подтвердите новый пароль'))
 })
 
 type ProfileSchema = v.InferOutput<typeof profileSchema>
@@ -82,7 +87,8 @@ const profileState = reactive<ProfileSchema>({
 
 const passwordState = reactive<PasswordSchema>({
   currentPassword: '',
-  newPassword: ''
+  newPassword: '',
+  confirmNewPassword: ''
 })
 
 async function withErrorToast(action: () => Promise<void>) {
@@ -129,6 +135,10 @@ async function onChangePassword(event: FormSubmitEvent<PasswordSchema>) {
   changingPassword.value = true
 
   await withErrorToast(async () => {
+    if (event.data.newPassword !== event.data.confirmNewPassword) {
+      throw new Error('Новые пароли не совпадают')
+    }
+
     await auth.changePassword({
       currentPassword: event.data.currentPassword,
       newPassword: event.data.newPassword
@@ -136,6 +146,7 @@ async function onChangePassword(event: FormSubmitEvent<PasswordSchema>) {
 
     passwordState.currentPassword = ''
     passwordState.newPassword = ''
+    passwordState.confirmNewPassword = ''
 
     toast.add({ title: 'Пароль обновлен', color: 'success' })
   })

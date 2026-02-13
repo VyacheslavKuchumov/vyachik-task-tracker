@@ -4,13 +4,13 @@
       <UCard>
         <div class="space-y-1">
           <p class="text-sm text-muted">Цели</p>
-          <p class="text-2xl font-semibold">{{ tracker.goals.length }}</p>
+          <p class="text-2xl font-semibold">{{ visibleGoals.length }}</p>
         </div>
       </UCard>
 
       <UCard>
         <div class="space-y-1">
-          <p class="text-sm text-muted">Задачи по всем целям</p>
+          <p class="text-sm text-muted">Задачи по видимым целям</p>
           <p class="text-2xl font-semibold">{{ tasksInGoals }}</p>
         </div>
       </UCard>
@@ -21,10 +21,15 @@
         <div class="flex flex-wrap items-center justify-between gap-3">
           <div>
             <h2 class="text-lg font-semibold">Цели</h2>
-            <p class="text-sm text-muted">Создавайте цели и открывайте отдельную страницу задач для каждой цели.</p>
+            <p class="text-sm text-muted">Создавайте цели, задавайте приоритет и статус, переходите к задачам.</p>
           </div>
 
-          <div class="flex items-center gap-2">
+          <div class="flex items-center gap-3">
+            <label class="flex items-center gap-2 text-sm text-muted">
+              <input v-model="hideAchievedGoals" type="checkbox" class="h-4 w-4 rounded border-default" />
+              Скрыть достигнутые
+            </label>
+
             <UButton
               icon="i-lucide-refresh-cw"
               color="neutral"
@@ -45,7 +50,7 @@
       <UProgress v-if="tracker.loadingGoals" />
 
       <UAlert
-        v-else-if="tracker.goals.length === 0"
+        v-else-if="visibleGoals.length === 0"
         icon="i-lucide-folder-open"
         color="neutral"
         variant="soft"
@@ -54,7 +59,7 @@
       />
 
       <div v-else class="space-y-4">
-        <UCard v-for="goal in tracker.goals" :key="goal.id" variant="soft">
+        <UCard v-for="goal in visibleGoals" :key="goal.id" variant="soft">
           <template #header>
             <div class="flex flex-wrap items-start justify-between gap-3">
               <div class="space-y-1">
@@ -63,6 +68,12 @@
               </div>
 
               <div class="flex items-center gap-2">
+                <UBadge :color="goalStatusColor(goal.status)" variant="soft">
+                  {{ goalStatusLabel(goal.status) }}
+                </UBadge>
+                <UBadge :color="priorityColor(goal.priority)" variant="soft">
+                  {{ priorityLabel(goal.priority) }}
+                </UBadge>
                 <UButton icon="i-lucide-pencil" color="neutral" variant="soft" @click="openEditGoal(goal)">
                   Редактировать
                 </UButton>
@@ -111,6 +122,22 @@
             />
           </UFormField>
 
+          <UFormField label="Приоритет" name="priority" required>
+            <select v-model="createGoalState.priority" class="w-full rounded-md border border-default bg-default p-2 text-sm">
+              <option value="high">Высокий</option>
+              <option value="medium">Средний</option>
+              <option value="low">Низкий</option>
+            </select>
+          </UFormField>
+
+          <UFormField label="Статус" name="status" required>
+            <select v-model="createGoalState.status" class="w-full rounded-md border border-default bg-default p-2 text-sm">
+              <option value="todo">К выполнению</option>
+              <option value="in_progress">В работе</option>
+              <option value="achieved">Достигнута</option>
+            </select>
+          </UFormField>
+
           <div class="flex justify-end gap-2">
             <UButton type="button" color="neutral" variant="soft" @click="createGoalOpen = false">
               Отмена
@@ -132,6 +159,22 @@
 
           <UFormField label="Описание" name="description">
             <UTextarea v-model="editGoalState.description" :rows="4" class="w-full" placeholder="Необязательно" />
+          </UFormField>
+
+          <UFormField label="Приоритет" name="priority" required>
+            <select v-model="editGoalState.priority" class="w-full rounded-md border border-default bg-default p-2 text-sm">
+              <option value="high">Высокий</option>
+              <option value="medium">Средний</option>
+              <option value="low">Низкий</option>
+            </select>
+          </UFormField>
+
+          <UFormField label="Статус" name="status" required>
+            <select v-model="editGoalState.status" class="w-full rounded-md border border-default bg-default p-2 text-sm">
+              <option value="todo">К выполнению</option>
+              <option value="in_progress">В работе</option>
+              <option value="achieved">Достигнута</option>
+            </select>
           </UFormField>
 
           <div class="flex justify-end gap-2">
@@ -156,6 +199,8 @@ type GoalEntity = {
   id: number
   title: string
   description: string
+  priority: 'high' | 'medium' | 'low'
+  status: 'todo' | 'in_progress' | 'achieved'
   ownerName?: string
   tasks?: Array<{ id: number }>
 }
@@ -166,6 +211,7 @@ const toast = useToast()
 
 const createGoalOpen = ref(false)
 const editGoalOpen = ref(false)
+const hideAchievedGoals = ref(false)
 
 const creatingGoal = ref(false)
 const updatingGoal = ref(false)
@@ -173,25 +219,61 @@ const deletingGoalId = ref<number | null>(null)
 
 const goalSchema = v.object({
   title: v.pipe(v.string(), v.minLength(3, 'Название цели должно быть не короче 3 символов')),
-  description: v.pipe(v.string(), v.maxLength(2000, 'Описание должно быть не длиннее 2000 символов'))
+  description: v.pipe(v.string(), v.maxLength(2000, 'Описание должно быть не длиннее 2000 символов')),
+  priority: v.pipe(v.string(), v.minLength(1, 'Приоритет обязателен')),
+  status: v.pipe(v.string(), v.minLength(1, 'Статус обязателен'))
 })
 
 type GoalSchema = v.InferOutput<typeof goalSchema>
 
 const createGoalState = reactive<GoalSchema>({
   title: '',
-  description: ''
+  description: '',
+  priority: 'medium',
+  status: 'todo'
 })
 
-const editGoalState = reactive<{ id: number | null; title: string; description: string }>({
+const editGoalState = reactive<{ id: number | null; title: string; description: string; priority: string; status: string }>({
   id: null,
   title: '',
-  description: ''
+  description: '',
+  priority: 'medium',
+  status: 'todo'
+})
+
+const visibleGoals = computed(() => {
+  const goals = tracker.goals || []
+  if (!hideAchievedGoals.value) return goals
+  return goals.filter((goal: GoalEntity) => goal.status !== 'achieved')
 })
 
 const tasksInGoals = computed(() => {
-  return tracker.goals.reduce((sum: number, goal: GoalEntity) => sum + (goal.tasks?.length || 0), 0)
+  return visibleGoals.value.reduce((sum: number, goal: GoalEntity) => sum + (goal.tasks?.length || 0), 0)
 })
+
+function priorityColor(priority: string) {
+  if (priority === 'high') return 'error'
+  if (priority === 'medium') return 'warning'
+  return 'neutral'
+}
+
+function priorityLabel(priority: string) {
+  if (priority === 'high') return 'Высокий'
+  if (priority === 'medium') return 'Средний'
+  return 'Низкий'
+}
+
+function goalStatusColor(status: string) {
+  if (status === 'achieved') return 'success'
+  if (status === 'in_progress') return 'warning'
+  return 'neutral'
+}
+
+function goalStatusLabel(status: string) {
+  if (status === 'achieved') return 'Достигнута'
+  if (status === 'in_progress') return 'В работе'
+  return 'К выполнению'
+}
 
 function confirmAction(message: string) {
   if (typeof window === 'undefined') return false
@@ -228,13 +310,17 @@ async function onCreateGoal(event: FormSubmitEvent<GoalSchema>) {
     await tracker.createGoal(
       {
         title: event.data.title.trim(),
-        description: event.data.description.trim()
+        description: event.data.description.trim(),
+        priority: event.data.priority,
+        status: event.data.status
       },
       auth.authHeader()
     )
 
     createGoalState.title = ''
     createGoalState.description = ''
+    createGoalState.priority = 'medium'
+    createGoalState.status = 'todo'
     createGoalOpen.value = false
 
     await tracker.fetchGoals(auth.authHeader())
@@ -249,6 +335,8 @@ function openEditGoal(goal: GoalEntity) {
   editGoalState.id = goal.id
   editGoalState.title = goal.title
   editGoalState.description = goal.description
+  editGoalState.priority = goal.priority || 'medium'
+  editGoalState.status = goal.status || 'todo'
   editGoalOpen.value = true
 }
 
@@ -262,7 +350,9 @@ async function onUpdateGoal(event: FormSubmitEvent<GoalSchema>) {
       editGoalState.id,
       {
         title: event.data.title.trim(),
-        description: event.data.description.trim()
+        description: event.data.description.trim(),
+        priority: event.data.priority,
+        status: event.data.status
       },
       auth.authHeader()
     )

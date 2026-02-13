@@ -9,7 +9,11 @@
           </div>
 
           <div class="flex items-center gap-2">
-            <UBadge color="primary" variant="subtle" size="lg">{{ tracker.assignedTasks.length }}</UBadge>
+            <label class="flex items-center gap-2 text-sm text-muted">
+              <input v-model="hideCompletedTasks" type="checkbox" class="h-4 w-4 rounded border-default" />
+              Скрыть выполненные
+            </label>
+            <UBadge color="primary" variant="subtle" size="lg">{{ visibleAssignedTasks.length }}</UBadge>
             <UButton
               icon="i-lucide-refresh-cw"
               color="neutral"
@@ -29,7 +33,7 @@
       <UProgress v-if="tracker.loadingAssigned" />
 
       <UAlert
-        v-else-if="tracker.assignedTasks.length === 0"
+        v-else-if="visibleAssignedTasks.length === 0"
         icon="i-lucide-user-round-check"
         color="neutral"
         variant="soft"
@@ -38,16 +42,21 @@
       />
 
       <div v-else class="space-y-3">
-        <UCard v-for="task in tracker.assignedTasks" :key="task.id" variant="soft">
+        <UCard v-for="task in visibleAssignedTasks" :key="task.id" variant="soft">
           <div class="flex items-start justify-between gap-3">
             <div class="space-y-1">
               <p class="font-medium">{{ task.title }}</p>
               <p class="text-sm text-muted">{{ task.description || 'Без описания' }}</p>
             </div>
 
-            <UBadge :color="statusColor(task.status)" variant="soft">
-              {{ statusLabel(task.status) }}
-            </UBadge>
+            <div class="flex items-center gap-2">
+              <UBadge :color="completionColor(task.isCompleted)" variant="soft">
+                {{ completionLabel(task.isCompleted) }}
+              </UBadge>
+              <UBadge :color="priorityColor(task.priority)" variant="soft">
+                {{ priorityLabel(task.priority) }}
+              </UBadge>
+            </div>
           </div>
 
           <div class="mt-3 flex flex-wrap gap-3 text-xs text-muted">
@@ -66,14 +75,20 @@
             <p class="text-sm text-muted">Список всех целей и их задач.</p>
           </div>
 
-          <UBadge color="neutral" variant="subtle" size="lg">{{ tasksInGoals }}</UBadge>
+          <div class="flex items-center gap-2">
+            <label class="flex items-center gap-2 text-sm text-muted">
+              <input v-model="hideAchievedGoals" type="checkbox" class="h-4 w-4 rounded border-default" />
+              Скрыть достигнутые цели
+            </label>
+            <UBadge color="neutral" variant="subtle" size="lg">{{ tasksInGoals }}</UBadge>
+          </div>
         </div>
       </template>
 
       <UProgress v-if="tracker.loadingGoals" />
 
       <UAlert
-        v-else-if="tracker.goals.length === 0"
+        v-else-if="visibleGoals.length === 0"
         icon="i-lucide-folder-open"
         color="neutral"
         variant="soft"
@@ -82,7 +97,7 @@
       />
 
       <div v-else class="space-y-4">
-        <UCard v-for="goal in tracker.goals" :key="goal.id" variant="soft">
+        <UCard v-for="goal in visibleGoals" :key="goal.id" variant="soft">
           <template #header>
             <div class="flex flex-wrap items-start justify-between gap-3">
               <div class="space-y-1">
@@ -90,12 +105,20 @@
                 <p class="text-sm text-muted">{{ goal.description || 'Без описания' }}</p>
               </div>
 
-              <UBadge color="neutral" variant="soft">{{ (goal.tasks || []).length }}</UBadge>
+              <div class="flex items-center gap-2">
+                <UBadge :color="goalStatusColor(goal.status)" variant="soft">
+                  {{ goalStatusLabel(goal.status) }}
+                </UBadge>
+                <UBadge :color="priorityColor(goal.priority)" variant="soft">
+                  {{ priorityLabel(goal.priority) }}
+                </UBadge>
+                <UBadge color="neutral" variant="soft">{{ goalVisibleTasks(goal).length }}</UBadge>
+              </div>
             </div>
           </template>
 
           <UAlert
-            v-if="(goal.tasks || []).length === 0"
+            v-if="goalVisibleTasks(goal).length === 0"
             icon="i-lucide-list-todo"
             color="neutral"
             variant="soft"
@@ -105,7 +128,7 @@
 
           <div v-else class="space-y-2">
             <div
-              v-for="task in goal.tasks"
+              v-for="task in goalVisibleTasks(goal)"
               :key="task.id"
               class="rounded-md border border-default bg-default px-3 py-2"
             >
@@ -115,9 +138,14 @@
                   <p class="text-sm text-muted">{{ task.description || 'Без описания' }}</p>
                 </div>
 
-                <UBadge :color="statusColor(task.status)" variant="soft">
-                  {{ statusLabel(task.status) }}
-                </UBadge>
+                <div class="flex items-center gap-2">
+                  <UBadge :color="completionColor(task.isCompleted)" variant="soft">
+                    {{ completionLabel(task.isCompleted) }}
+                  </UBadge>
+                  <UBadge :color="priorityColor(task.priority)" variant="soft">
+                    {{ priorityLabel(task.priority) }}
+                  </UBadge>
+                </div>
               </div>
 
               <div class="mt-2 flex flex-wrap gap-3 text-xs text-muted">
@@ -144,18 +172,60 @@
 const auth = useAuthStore()
 const tracker = useTrackerStore()
 const toast = useToast()
-const tasksInGoals = computed(() => {
-  return tracker.goals.reduce((sum, goal) => sum + ((goal.tasks || []).length || 0), 0)
+
+const hideCompletedTasks = ref(false)
+const hideAchievedGoals = ref(false)
+
+const visibleAssignedTasks = computed(() => {
+  const tasks = tracker.assignedTasks || []
+  if (!hideCompletedTasks.value) return tasks
+  return tasks.filter((task) => !task.isCompleted)
 })
 
-function statusColor(status) {
-  if (status === 'done') return 'success'
+const visibleGoals = computed(() => {
+  const goals = tracker.goals || []
+  if (!hideAchievedGoals.value) return goals
+  return goals.filter((goal) => goal.status !== 'achieved')
+})
+
+const tasksInGoals = computed(() => {
+  return visibleGoals.value.reduce((sum, goal) => sum + goalVisibleTasks(goal).length, 0)
+})
+
+function goalVisibleTasks(goal) {
+  const tasks = goal?.tasks || []
+  if (!hideCompletedTasks.value) return tasks
+  return tasks.filter((task) => !task.isCompleted)
+}
+
+function priorityColor(priority) {
+  if (priority === 'high') return 'error'
+  if (priority === 'medium') return 'warning'
+  return 'neutral'
+}
+
+function priorityLabel(priority) {
+  if (priority === 'high') return 'Высокий'
+  if (priority === 'medium') return 'Средний'
+  return 'Низкий'
+}
+
+function completionColor(isCompleted) {
+  return isCompleted ? 'success' : 'neutral'
+}
+
+function completionLabel(isCompleted) {
+  return isCompleted ? 'Выполнена' : 'Не выполнена'
+}
+
+function goalStatusColor(status) {
+  if (status === 'achieved') return 'success'
   if (status === 'in_progress') return 'warning'
   return 'neutral'
 }
 
-function statusLabel(status) {
-  if (status === 'done') return 'Готово'
+function goalStatusLabel(status) {
+  if (status === 'achieved') return 'Достигнута'
   if (status === 'in_progress') return 'В работе'
   return 'К выполнению'
 }

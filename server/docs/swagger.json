@@ -820,7 +820,7 @@
                         "BearerAuth": []
                     }
                 ],
-                "description": "Get all users and their current assigned tasks (todo and in_progress)",
+                "description": "Get all users and their current assigned tasks (not completed)",
                 "produces": [
                     "application/json"
                 ],
@@ -866,12 +866,30 @@
         "types.CreateGoalPayload": {
             "type": "object",
             "required": [
+                "priority",
+                "status",
                 "title"
             ],
             "properties": {
                 "description": {
                     "type": "string",
                     "maxLength": 2000
+                },
+                "priority": {
+                    "type": "string",
+                    "enum": [
+                        "high",
+                        "medium",
+                        "low"
+                    ]
+                },
+                "status": {
+                    "type": "string",
+                    "enum": [
+                        "todo",
+                        "in_progress",
+                        "achieved"
+                    ]
                 },
                 "title": {
                     "type": "string",
@@ -883,6 +901,7 @@
         "types.CreateTaskPayload": {
             "type": "object",
             "required": [
+                "priority",
                 "title"
             ],
             "properties": {
@@ -892,6 +911,14 @@
                 "description": {
                     "type": "string",
                     "maxLength": 2000
+                },
+                "priority": {
+                    "type": "string",
+                    "enum": [
+                        "high",
+                        "medium",
+                        "low"
+                    ]
                 },
                 "title": {
                     "type": "string",
@@ -926,6 +953,12 @@
                 "ownerName": {
                     "type": "string"
                 },
+                "priority": {
+                    "type": "string"
+                },
+                "status": {
+                    "type": "string"
+                },
                 "title": {
                     "type": "string"
                 }
@@ -947,6 +980,12 @@
                     "type": "integer"
                 },
                 "ownerName": {
+                    "type": "string"
+                },
+                "priority": {
+                    "type": "string"
+                },
+                "status": {
                     "type": "string"
                 },
                 "tasks": {
@@ -1038,7 +1077,10 @@
                 "id": {
                     "type": "integer"
                 },
-                "status": {
+                "isCompleted": {
+                    "type": "boolean"
+                },
+                "priority": {
                     "type": "string"
                 },
                 "title": {
@@ -1088,7 +1130,7 @@
             "type": "object",
             "required": [
                 "goalId",
-                "status",
+                "priority",
                 "title"
             ],
             "properties": {
@@ -1103,12 +1145,15 @@
                     "type": "integer",
                     "minimum": 1
                 },
-                "status": {
+                "isCompleted": {
+                    "type": "boolean"
+                },
+                "priority": {
                     "type": "string",
                     "enum": [
-                        "todo",
-                        "in_progress",
-                        "done"
+                        "high",
+                        "medium",
+                        "low"
                     ]
                 },
                 "title": {

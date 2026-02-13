@@ -21,7 +21,7 @@
         <div class="flex flex-wrap items-center justify-between gap-3">
           <div>
             <h1 class="text-xl font-semibold">Пользователи и текущие задачи</h1>
-            <p class="text-sm text-muted">Просмотр всех пользователей и назначенных им текущих задач.</p>
+            <p class="text-sm text-muted">Просмотр всех пользователей и назначенных им незавершённых задач.</p>
           </div>
 
           <UButton
@@ -68,7 +68,7 @@
             color="neutral"
             variant="soft"
             title="Нет текущих задач"
-            description="У этого пользователя нет задач со статусами «к выполнению» или «в работе»."
+            description="У этого пользователя нет незавершённых задач."
           />
 
           <div v-else class="space-y-3">
@@ -79,9 +79,14 @@
                   <p class="text-sm text-muted">{{ task.description || 'Без описания' }}</p>
                 </div>
 
-                <UBadge :color="statusColor(task.status)" variant="soft">
-                  {{ statusLabel(task.status) }}
-                </UBadge>
+                <div class="flex items-center gap-2">
+                  <UBadge :color="completionColor(task.isCompleted)" variant="soft">
+                    {{ completionLabel(task.isCompleted) }}
+                  </UBadge>
+                  <UBadge :color="priorityColor(task.priority)" variant="soft">
+                    {{ priorityLabel(task.priority) }}
+                  </UBadge>
+                </div>
               </div>
 
               <div class="mt-3 flex flex-wrap gap-3 text-xs text-muted">
@@ -106,16 +111,24 @@ const currentTasksCount = computed(() => {
   return usersWithTasks.value.reduce((sum, user) => sum + (user.tasks?.length || 0), 0)
 })
 
-function statusColor(status) {
-  if (status === 'done') return 'success'
-  if (status === 'in_progress') return 'warning'
+function priorityColor(priority) {
+  if (priority === 'high') return 'error'
+  if (priority === 'medium') return 'warning'
   return 'neutral'
 }
 
-function statusLabel(status) {
-  if (status === 'done') return 'Готово'
-  if (status === 'in_progress') return 'В работе'
-  return 'К выполнению'
+function priorityLabel(priority) {
+  if (priority === 'high') return 'Высокий'
+  if (priority === 'medium') return 'Средний'
+  return 'Низкий'
+}
+
+function completionColor(isCompleted) {
+  return isCompleted ? 'success' : 'neutral'
+}
+
+function completionLabel(isCompleted) {
+  return isCompleted ? 'Выполнена' : 'Не выполнена'
 }
 
 async function withErrorToast(action) {

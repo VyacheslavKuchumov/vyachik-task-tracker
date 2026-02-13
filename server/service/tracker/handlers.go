@@ -429,7 +429,7 @@ func (h *Handler) HandleGetAssignedTasks(w http.ResponseWriter, r *http.Request)
 
 // HandleGetUsersWithCurrentTasks godoc
 // @Summary Get users with current tasks
-// @Description Get all users and their current assigned tasks (todo and in_progress)
+// @Description Get all users and their current assigned tasks (not completed)
 // @Tags users
 // @Produce json
 // @Security BearerAuth
