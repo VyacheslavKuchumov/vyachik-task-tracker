@@ -39,6 +39,3 @@ Open:
 - `server/`: backend API, migrations, tests
 - `web/`: frontend app and API proxy routes
 - `docs/`: project docs
-
-
-test
