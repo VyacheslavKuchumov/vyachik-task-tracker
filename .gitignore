@@ -31,3 +31,8 @@ go.work.sum
 # Editor/IDE
 # .idea/
 # .vscode/
+
+# Nuxt frontend
+web/node_modules/
+web/.nuxt/
+web/.output/

@@ -17,11 +17,11 @@ services:
       timeout: 5s
       retries: 10
 
-  app:
+  server:
     build:
-      context: ./backend
+      context: ./server
       dockerfile: Dockerfile
-    container_name: task_tracker_app
+    container_name: task_tracker_server
     restart: unless-stopped
     depends_on:
       postgres:
@@ -39,6 +39,24 @@ services:
       JWT_SECRET: CHANGE_ME
     ports:
       - "8000:8000"
+
+  web:
+    build:
+      context: ./web
+      dockerfile: Dockerfile
+    container_name: task_tracker_web
+    restart: unless-stopped
+    depends_on:
+      server:
+        condition: service_started
+    environment:
+      BACKEND_URL: http://server:8000
+      NUXT_BACKEND_URL: http://server:8000
+      NODE_ENV: production
+      NITRO_HOST: 0.0.0.0
+      NITRO_PORT: 3000
+    ports:
+      - "3000:3000"
 
 volumes:
   postgres_data:

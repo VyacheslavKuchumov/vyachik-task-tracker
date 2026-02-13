@@ -20,13 +20,13 @@ air:
 	@air
 
 docker-up:
-	@docker compose up -d --build
+	@docker compose -f ../docker-compose.yml up -d --build
 
 docker-db-up:
-	@docker compose up -d postgres
+	@docker compose -f ../docker-compose.yml up -d postgres
 
 docker-down:
-	@docker compose down
+	@docker compose -f ../docker-compose.yml down
 
 migration:
 	@migrate create -ext sql -dir $(MIGRATION_DIR) -seq $(filter-out $@,$(MAKECMDGOALS))
