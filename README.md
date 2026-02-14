@@ -21,10 +21,13 @@ Make sure these DNS records point to your VPS public IP before starting:
 - `home.vyachik-dev.ru`
 - `home-server.vyachik-dev.ru`
 
-Set your ACME email (used by Traefik Let's Encrypt):
+Generate root `.env` (contains ACME email, hosts, DB password, JWT secret):
 
 ```bash
-export TRAEFIK_ACME_EMAIL=slavakuchumov@gmail.com
+python3 scripts/generate_compose_env.py \
+  --acme-email your-email@example.com \
+  --web-host home.your-domain.tld \
+  --api-host home-server.your-domain.tld
 ```
 
 ```bash
@@ -33,9 +36,9 @@ docker compose up -d --build --remove-orphans
 
 Open:
 
-- Frontend: `https://home.vyachik-dev.ru`
-- Backend API: `https://home-server.vyachik-dev.ru/api/v1`
-- Swagger UI (requires auth): `https://home-server.vyachik-dev.ru/swagger/index.html`
+- Frontend: `https://<TRAEFIK_WEB_HOST>`
+- Backend API: `https://<TRAEFIK_API_HOST>/api/v1`
+- Swagger UI (requires auth): `https://<TRAEFIK_API_HOST>/swagger/index.html`
 
 ## Documentation
 
