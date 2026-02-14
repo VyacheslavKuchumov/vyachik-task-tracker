@@ -21,7 +21,7 @@
             >
               Обновить
             </UButton>
-            <UButton icon="i-lucide-plus" color="primary" @click="createTaskOpen = true">
+            <UButton v-if="canManageGoal" icon="i-lucide-plus" color="primary" @click="createTaskOpen = true">
               Новая задача
             </UButton>
           </div>
@@ -80,10 +80,17 @@
                 <UBadge :color="priorityColor(task.priority)" variant="soft">
                   {{ priorityLabel(task.priority) }}
                 </UBadge>
-                <UButton icon="i-lucide-pencil" color="neutral" variant="soft" @click="openEditTask(task)">
+                <UButton
+                  v-if="canManageGoal"
+                  icon="i-lucide-pencil"
+                  color="neutral"
+                  variant="soft"
+                  @click="openEditTask(task)"
+                >
                   Редактировать
                 </UButton>
                 <UButton
+                  v-if="canManageGoal"
                   icon="i-lucide-trash-2"
                   color="error"
                   variant="soft"
@@ -202,6 +209,7 @@ const deletingTaskId = ref<number | null>(null)
 const hideCompletedTasks = ref(false)
 
 const usersLookup = computed(() => tracker.usersLookup || [])
+const canManageGoal = computed(() => Number(goal.value?.ownerId) > 0 && Number(goal.value?.ownerId) === Number(auth.userId))
 const visibleTasks = computed(() => {
   const tasks = goal.value?.tasks || []
   if (!hideCompletedTasks.value) return tasks
@@ -332,6 +340,8 @@ async function ensureLookupsLoaded() {
 }
 
 async function onCreateTask(event: FormSubmitEvent<CreateTaskSchema>) {
+  if (!canManageGoal.value) return
+
   creatingTask.value = true
 
   await withErrorToast(async () => {
@@ -367,6 +377,8 @@ async function onCreateTask(event: FormSubmitEvent<CreateTaskSchema>) {
 }
 
 function openEditTask(task: any) {
+  if (!canManageGoal.value) return
+
   editTaskState.id = task.id
   editTaskState.title = task.title
   editTaskState.description = task.description
@@ -377,6 +389,7 @@ function openEditTask(task: any) {
 }
 
 async function onUpdateTask(event: FormSubmitEvent<UpdateTaskSchema>) {
+  if (!canManageGoal.value) return
   if (!editTaskState.id) return
 
   updatingTask.value = true
@@ -412,6 +425,7 @@ async function onUpdateTask(event: FormSubmitEvent<UpdateTaskSchema>) {
 }
 
 async function onDeleteTask(taskId: number) {
+  if (!canManageGoal.value) return
   if (!confirmAction('Удалить эту задачу?')) return
 
   deletingTaskId.value = taskId

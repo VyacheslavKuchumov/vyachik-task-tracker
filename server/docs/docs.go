@@ -22,7 +22,7 @@ const docTemplate = `{
                         "BearerAuth": []
                     }
                 ],
-                "description": "Get all goals for the authenticated user with nested tasks",
+                "description": "Get all goals with nested tasks for authenticated users",
                 "produces": [
                     "application/json"
                 ],
@@ -228,7 +228,7 @@ const docTemplate = `{
                         "BearerAuth": []
                     }
                 ],
-                "description": "Get a single goal with its tasks",
+                "description": "Get a single goal with its tasks for authenticated users",
                 "produces": [
                     "application/json"
                 ],
