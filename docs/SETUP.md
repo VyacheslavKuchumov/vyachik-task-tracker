@@ -20,10 +20,13 @@ From repository root:
 - `home.vyachik-dev.ru`
 - `home-server.vyachik-dev.ru`
 
-2. Set an ACME email for Let's Encrypt certificate registration:
+2. Generate root `.env` for Docker Compose:
 
 ```bash
-export TRAEFIK_ACME_EMAIL=slavakuchumov@gmail.com
+python3 scripts/generate_compose_env.py \
+  --acme-email your-email@example.com \
+  --web-host home.your-domain.tld \
+  --api-host home-server.your-domain.tld
 ```
 
 3. Start the stack:
@@ -34,8 +37,8 @@ docker compose up -d --build --remove-orphans
 
 Services:
 
-- `web` at `https://home.vyachik-dev.ru`
-- `server` at `https://home-server.vyachik-dev.ru`
+- `web` at `https://<TRAEFIK_WEB_HOST>`
+- `server` at `https://<TRAEFIK_API_HOST>`
 - `postgres` at host port `5433`
 
 Stop:
