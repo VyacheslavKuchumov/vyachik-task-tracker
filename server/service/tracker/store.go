@@ -81,7 +81,7 @@ func (s *Store) DeleteGoal(goalID, ownerID int) error {
 	return nil
 }
 
-func (s *Store) GetGoalsByOwner(ownerID int) ([]*types.GoalWithTasks, error) {
+func (s *Store) GetGoalsByOwner(_ int) ([]*types.GoalWithTasks, error) {
 	rows, err := s.db.Query(
 		`SELECT
 			g.id,
@@ -108,7 +108,6 @@ func (s *Store) GetGoalsByOwner(ownerID int) ([]*types.GoalWithTasks, error) {
 		LEFT JOIN tasks t ON t.goal_id = g.id
 		LEFT JOIN users assignee_u ON assignee_u.id = t.assignee_id
 		LEFT JOIN users creator_u ON creator_u.id = t.created_by
-		WHERE g.owner_id = $1
 		ORDER BY
 			CASE WHEN g.status = 'achieved' THEN 1 ELSE 0 END,
 			CASE g.priority WHEN 'high' THEN 0 WHEN 'medium' THEN 1 ELSE 2 END,
@@ -116,7 +115,6 @@ func (s *Store) GetGoalsByOwner(ownerID int) ([]*types.GoalWithTasks, error) {
 			CASE WHEN t.is_completed THEN 1 ELSE 0 END,
 			CASE t.priority WHEN 'high' THEN 0 WHEN 'medium' THEN 1 WHEN 'low' THEN 2 ELSE 3 END,
 			t.created_at ASC`,
-		ownerID,
 	)
 	if err != nil {
 		return nil, err
@@ -206,7 +204,7 @@ func (s *Store) GetGoalsByOwner(ownerID int) ([]*types.GoalWithTasks, error) {
 	return goals, rows.Err()
 }
 
-func (s *Store) GetGoalWithTasks(goalID, ownerID int) (*types.GoalWithTasks, error) {
+func (s *Store) GetGoalWithTasks(goalID, _ int) (*types.GoalWithTasks, error) {
 	rows, err := s.db.Query(
 		`SELECT
 			g.id,
@@ -233,13 +231,12 @@ func (s *Store) GetGoalWithTasks(goalID, ownerID int) (*types.GoalWithTasks, err
 		LEFT JOIN tasks t ON t.goal_id = g.id
 		LEFT JOIN users assignee_u ON assignee_u.id = t.assignee_id
 		LEFT JOIN users creator_u ON creator_u.id = t.created_by
-		WHERE g.id = $1 AND g.owner_id = $2
+		WHERE g.id = $1
 		ORDER BY
 			CASE WHEN t.is_completed THEN 1 ELSE 0 END,
 			CASE t.priority WHEN 'high' THEN 0 WHEN 'medium' THEN 1 WHEN 'low' THEN 2 ELSE 3 END,
 			t.created_at ASC`,
 		goalID,
-		ownerID,
 	)
 	if err != nil {
 		return nil, err

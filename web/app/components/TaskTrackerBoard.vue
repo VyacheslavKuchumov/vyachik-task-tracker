@@ -74,10 +74,17 @@
                 <UBadge :color="priorityColor(goal.priority)" variant="soft">
                   {{ priorityLabel(goal.priority) }}
                 </UBadge>
-                <UButton icon="i-lucide-pencil" color="neutral" variant="soft" @click="openEditGoal(goal)">
+                <UButton
+                  v-if="isGoalOwner(goal)"
+                  icon="i-lucide-pencil"
+                  color="neutral"
+                  variant="soft"
+                  @click="openEditGoal(goal)"
+                >
                   Редактировать
                 </UButton>
                 <UButton
+                  v-if="isGoalOwner(goal)"
                   icon="i-lucide-trash-2"
                   color="error"
                   variant="soft"
@@ -93,6 +100,7 @@
           <div class="flex flex-wrap items-center justify-between gap-3 text-sm text-muted">
             <span>Владелец: {{ goal.ownerName || auth.displayName }}</span>
             <span>Задачи: {{ (goal.tasks || []).length }}</span>
+            <span v-if="!isGoalOwner(goal)">Только владелец может редактировать цель</span>
           </div>
 
           <template #footer>
@@ -201,6 +209,7 @@ type GoalEntity = {
   description: string
   priority: 'high' | 'medium' | 'low'
   status: 'todo' | 'in_progress' | 'achieved'
+  ownerId: number
   ownerName?: string
   tasks?: Array<{ id: number }>
 }
@@ -280,6 +289,10 @@ function confirmAction(message: string) {
   return window.confirm(message)
 }
 
+function isGoalOwner(goal: GoalEntity) {
+  return Number(goal?.ownerId) > 0 && Number(goal.ownerId) === Number(auth.userId)
+}
+
 async function withErrorToast(action: () => Promise<void>) {
   try {
     await action()
@@ -332,6 +345,8 @@ async function onCreateGoal(event: FormSubmitEvent<GoalSchema>) {
 }
 
 function openEditGoal(goal: GoalEntity) {
+  if (!isGoalOwner(goal)) return
+
   editGoalState.id = goal.id
   editGoalState.title = goal.title
   editGoalState.description = goal.description
@@ -366,6 +381,9 @@ async function onUpdateGoal(event: FormSubmitEvent<GoalSchema>) {
 }
 
 async function onDeleteGoal(goalId: number) {
+  const goal = tracker.goals.find((item: GoalEntity) => item.id === goalId)
+  if (!goal || !isGoalOwner(goal)) return
+
   if (!confirmAction('Удалить эту цель и все вложенные задачи?')) return
 
   deletingGoalId.value = goalId

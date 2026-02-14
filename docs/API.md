@@ -110,7 +110,7 @@ Returns all users with their current assigned tasks (`todo`, `in_progress`).
 
 ### `GET /goals` (protected)
 
-Returns current user's goals with nested tasks.
+Returns all goals with nested tasks for authenticated users.
 
 Success response (`200 OK`):
 
@@ -193,7 +193,7 @@ Notes:
 
 ### `GET /goals/{goalID}/tasks` (protected)
 
-Returns one goal object with nested tasks. Used by `/tasks/:goalId` page.
+Returns one goal object with nested tasks. Any authenticated user can view.
 
 ### `GET /tasks/assigned` (protected)
 

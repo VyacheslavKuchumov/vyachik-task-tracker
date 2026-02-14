@@ -152,7 +152,7 @@ func (h *Handler) HandleDeleteGoal(w http.ResponseWriter, r *http.Request) {
 
 // HandleGetGoals godoc
 // @Summary Get goals
-// @Description Get all goals for the authenticated user with nested tasks
+// @Description Get all goals with nested tasks for authenticated users
 // @Tags goals
 // @Produce json
 // @Security BearerAuth
@@ -230,7 +230,7 @@ func (h *Handler) HandleCreateTask(w http.ResponseWriter, r *http.Request) {
 
 // HandleGetGoalTasks godoc
 // @Summary Get tasks by goal
-// @Description Get a single goal with its tasks
+// @Description Get a single goal with its tasks for authenticated users
 // @Tags tasks
 // @Produce json
 // @Security BearerAuth
