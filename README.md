@@ -16,15 +16,26 @@ Frontend views:
 
 ## Quick Start
 
+Make sure these DNS records point to your VPS public IP before starting:
+
+- `home.vyachik-dev.ru`
+- `home-server.vyachik-dev.ru`
+
+Set your ACME email (used by Traefik Let's Encrypt):
+
+```bash
+export TRAEFIK_ACME_EMAIL=slavakuchumov@gmail.com
+```
+
 ```bash
 docker compose up -d --build --remove-orphans
 ```
 
 Open:
 
-- Frontend: `http://localhost:3000`
-- Backend API: `http://localhost:8000/api/v1`
-- Swagger UI (requires auth): `http://localhost:8000/swagger/index.html`
+- Frontend: `https://home.vyachik-dev.ru`
+- Backend API: `https://home-server.vyachik-dev.ru/api/v1`
+- Swagger UI (requires auth): `https://home-server.vyachik-dev.ru/swagger/index.html`
 
 ## Documentation
 
