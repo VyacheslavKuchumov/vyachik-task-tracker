@@ -40,6 +40,20 @@ Open:
 - Backend API: `https://<TRAEFIK_API_HOST>/api/v1`
 - Swagger UI (requires auth): `https://<TRAEFIK_API_HOST>/swagger/index.html`
 
+## Standalone Docker Dev Script
+
+Run Postgres + backend + frontend as separate containers (without changing `docker-compose.yml`):
+
+```bash
+python3 scripts/dev_docker_stack.py up
+```
+
+Stop containers:
+
+```bash
+python3 scripts/dev_docker_stack.py down --remove-network
+```
+
 ## Documentation
 
 - `docs/README.md`: documentation index

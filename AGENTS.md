@@ -35,6 +35,20 @@ Task Tracker is a full-stack app with:
 docker compose up -d --build --remove-orphans
 ```
 
+### Standalone Docker testing (preferred for local testing)
+
+Use the helper script to start `postgres`, `server`, and `web` as separate containers without changing `docker-compose.yml`:
+
+```bash
+python3 scripts/dev_docker_stack.py up
+```
+
+Stop test containers when done:
+
+```bash
+python3 scripts/dev_docker_stack.py down --remove-network
+```
+
 ### Backend local development
 
 ```bash
