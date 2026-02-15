@@ -18,13 +18,14 @@
               icon="i-lucide-refresh-cw"
               color="neutral"
               variant="soft"
+              aria-label="Обновить"
               :loading="tracker.loadingAssigned || tracker.loadingGoals"
               @click="loadHomeData"
             >
-              Обновить
+              <span class="hidden sm:inline">Обновить</span>
             </UButton>
-            <UButton to="/goals" icon="i-lucide-folder-kanban" color="primary">
-              Открыть цели
+            <UButton to="/goals" icon="i-lucide-folder-kanban" color="primary" aria-label="Открыть цели">
+              <span class="hidden sm:inline">Открыть цели</span>
             </UButton>
           </div>
         </div>
@@ -56,8 +57,8 @@
               <UBadge :color="priorityColor(task.priority)" variant="soft">
                 {{ priorityLabel(task.priority) }}
               </UBadge>
-              <UButton icon="i-lucide-pencil" color="neutral" variant="soft" @click="openEditTask(task)">
-                Редактировать
+              <UButton icon="i-lucide-pencil" color="neutral" variant="soft" aria-label="Редактировать" @click="openEditTask(task)">
+                <span class="hidden sm:inline">Редактировать</span>
               </UButton>
             </div>
           </div>

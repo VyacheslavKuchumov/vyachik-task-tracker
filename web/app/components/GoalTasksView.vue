@@ -8,22 +8,26 @@
             <p class="text-sm text-muted">{{ goal?.description || 'Задачи выбранной цели.' }}</p>
           </div>
 
-          <div class="flex items-center gap-2">
-            <UButton to="/goals" color="neutral" variant="soft" icon="i-lucide-arrow-left">
-              К целям
+          <div class="flex w-full items-center gap-2 sm:w-auto">
+            <UButton to="/goals" color="neutral" variant="soft" icon="i-lucide-arrow-left" aria-label="К целям">
+              <span class="hidden sm:inline">К целям</span>
             </UButton>
-            <UButton
-              icon="i-lucide-refresh-cw"
-              color="neutral"
-              variant="soft"
-              :loading="loadingGoal"
-              @click="loadGoalTasks"
-            >
-              Обновить
-            </UButton>
-            <UButton v-if="canManageGoal" icon="i-lucide-plus" color="primary" @click="createTaskOpen = true">
-              Новая задача
-            </UButton>
+
+            <div class="ml-auto flex items-center gap-2">
+              <UButton
+                icon="i-lucide-refresh-cw"
+                color="neutral"
+                variant="soft"
+                aria-label="Обновить"
+                :loading="loadingGoal"
+                @click="loadGoalTasks"
+              >
+                <span class="hidden sm:inline">Обновить</span>
+              </UButton>
+              <UButton v-if="canManageGoal" icon="i-lucide-plus" color="primary" aria-label="Новая задача" @click="createTaskOpen = true">
+                <span class="hidden sm:inline">Новая задача</span>
+              </UButton>
+            </div>
           </div>
         </div>
       </template>
@@ -67,37 +71,44 @@
 
         <UCard v-for="task in visibleTasks" :key="task.id" variant="soft">
           <template #header>
-            <div class="flex flex-wrap items-start justify-between gap-3">
-              <div class="space-y-1">
-                <h3 class="font-semibold">{{ task.title }}</h3>
-                <p class="text-sm text-muted">{{ task.description || 'Без описания' }}</p>
+            <div class="space-y-3">
+              <div class="flex items-start justify-between gap-3">
+                <div class="min-w-0 flex-1 space-y-1">
+                  <h3 class="break-words font-semibold">{{ task.title }}</h3>
+                  <p class="break-words text-sm text-muted">{{ task.description || 'Без описания' }}</p>
+                </div>
+
+                <div class="flex shrink-0 items-center gap-2">
+                  <UButton
+                    icon="i-lucide-pencil"
+                    color="neutral"
+                    variant="soft"
+                    aria-label="Редактировать"
+                    @click="openEditTask(task)"
+                  >
+                    <span class="hidden sm:inline">Редактировать</span>
+                  </UButton>
+                  <UButton
+                    v-if="canManageGoal"
+                    icon="i-lucide-trash-2"
+                    color="error"
+                    variant="soft"
+                    aria-label="Удалить"
+                    :loading="deletingTaskId === task.id"
+                    @click="requestDeleteTask(task)"
+                  >
+                    <span class="hidden sm:inline">Удалить</span>
+                  </UButton>
+                </div>
               </div>
 
-              <div class="flex items-center gap-2">
+              <div class="flex flex-wrap items-center gap-2">
                 <UBadge :color="completionColor(task.isCompleted)" variant="soft">
                   {{ completionLabel(task.isCompleted) }}
                 </UBadge>
                 <UBadge :color="priorityColor(task.priority)" variant="soft">
                   {{ priorityLabel(task.priority) }}
                 </UBadge>
-                <UButton
-                  icon="i-lucide-pencil"
-                  color="neutral"
-                  variant="soft"
-                  @click="openEditTask(task)"
-                >
-                  Редактировать
-                </UButton>
-                <UButton
-                  v-if="canManageGoal"
-                  icon="i-lucide-trash-2"
-                  color="error"
-                  variant="soft"
-                  :loading="deletingTaskId === task.id"
-                  @click="onDeleteTask(task.id)"
-                >
-                  Удалить
-                </UButton>
               </div>
             </div>
           </template>
@@ -186,6 +197,31 @@
         </UForm>
       </template>
     </UModal>
+
+    <UModal v-model:open="deleteTaskConfirmOpen" title="Удалить задачу">
+      <template #body>
+        <div class="space-y-4">
+          <p class="text-sm text-muted">
+            Удалить задачу
+            <span class="font-semibold text-default">«{{ taskToDelete?.title || 'Без названия' }}»</span>?
+          </p>
+
+          <div class="flex justify-end gap-2">
+            <UButton type="button" color="neutral" variant="soft" @click="closeDeleteTaskModal">
+              Отмена
+            </UButton>
+            <UButton
+              type="button"
+              color="error"
+              :loading="deletingTaskId === taskToDelete?.id"
+              @click="confirmDeleteTask"
+            >
+              Удалить
+            </UButton>
+          </div>
+        </div>
+      </template>
+    </UModal>
   </section>
 </template>
 
@@ -206,6 +242,8 @@ const creatingTask = ref(false)
 const updatingTask = ref(false)
 const deletingTaskId = ref<number | null>(null)
 const hideCompletedTasks = ref(false)
+const deleteTaskConfirmOpen = ref(false)
+const taskToDelete = ref<{ id: number; title: string } | null>(null)
 
 const usersLookup = computed(() => tracker.usersLookup || [])
 const canManageGoal = computed(() => Number(goal.value?.ownerId) > 0 && Number(goal.value?.ownerId) === Number(auth.userId))
@@ -292,11 +330,6 @@ function parseOptionalPositiveInt(value?: string) {
   }
 
   return parsed
-}
-
-function confirmAction(message: string) {
-  if (typeof window === 'undefined') return false
-  return window.confirm(message)
 }
 
 async function withErrorToast(action: () => Promise<void>) {
@@ -420,11 +453,29 @@ async function onUpdateTask(event: FormSubmitEvent<UpdateTaskSchema>) {
   updatingTask.value = false
 }
 
-async function onDeleteTask(taskId: number) {
+function requestDeleteTask(task: any) {
   if (!canManageGoal.value) return
-  if (!confirmAction('Удалить эту задачу?')) return
+
+  taskToDelete.value = {
+    id: Number(task.id),
+    title: String(task.title || '')
+  }
+  deleteTaskConfirmOpen.value = true
+}
+
+function closeDeleteTaskModal() {
+  if (deletingTaskId.value !== null) return
+
+  deleteTaskConfirmOpen.value = false
+  taskToDelete.value = null
+}
+
+async function confirmDeleteTask() {
+  const taskId = taskToDelete.value?.id
+  if (!taskId) return
 
   deletingTaskId.value = taskId
+  let deleted = false
 
   await withErrorToast(async () => {
     await tracker.deleteTask(taskId, auth.authHeader())
@@ -436,9 +487,14 @@ async function onDeleteTask(taskId: number) {
     ])
 
     toast.add({ title: 'Задача удалена', color: 'success' })
+    deleted = true
   })
 
   deletingTaskId.value = null
+
+  if (deleted) {
+    closeDeleteTaskModal()
+  }
 }
 
 onMounted(async () => {
