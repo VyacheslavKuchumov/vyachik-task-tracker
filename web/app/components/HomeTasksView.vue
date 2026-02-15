@@ -56,6 +56,9 @@
               <UBadge :color="priorityColor(task.priority)" variant="soft">
                 {{ priorityLabel(task.priority) }}
               </UBadge>
+              <UButton icon="i-lucide-pencil" color="neutral" variant="soft" @click="openEditTask(task)">
+                Редактировать
+              </UButton>
             </div>
           </div>
 
@@ -165,6 +168,38 @@
         </UCard>
       </div>
     </UCard>
+
+    <UModal v-model:open="editTaskOpen" title="Редактировать задачу">
+      <template #body>
+        <form class="space-y-4" @submit.prevent="onUpdateTask">
+          <UFormField label="Название задачи" required>
+            <UInput v-model="editTaskState.title" class="w-full" />
+          </UFormField>
+
+          <UFormField label="Описание">
+            <UTextarea v-model="editTaskState.description" :rows="3" class="w-full" placeholder="Необязательно" />
+          </UFormField>
+
+          <UFormField label="Приоритет" required>
+            <select v-model="editTaskState.priority" class="w-full rounded-md border border-default bg-default p-2 text-sm">
+              <option value="high">Высокий</option>
+              <option value="medium">Средний</option>
+              <option value="low">Низкий</option>
+            </select>
+          </UFormField>
+
+          <label class="flex items-center gap-2 text-sm text-muted">
+            <input v-model="editTaskState.isCompleted" type="checkbox" class="h-4 w-4 rounded border-default" />
+            Задача выполнена
+          </label>
+
+          <div class="flex justify-end gap-2">
+            <UButton type="button" color="neutral" variant="soft" @click="editTaskOpen = false">Отмена</UButton>
+            <UButton type="submit" color="primary" :loading="updatingTask">Сохранить</UButton>
+          </div>
+        </form>
+      </template>
+    </UModal>
   </section>
 </template>
 
@@ -175,6 +210,17 @@ const toast = useToast()
 
 const hideCompletedTasks = ref(false)
 const hideAchievedGoals = ref(false)
+const editTaskOpen = ref(false)
+const updatingTask = ref(false)
+const editTaskState = reactive({
+  id: null,
+  goalId: null,
+  title: '',
+  description: '',
+  priority: 'medium',
+  isCompleted: false,
+  assigneeId: null
+})
 
 const visibleAssignedTasks = computed(() => {
   const tasks = tracker.assignedTasks || []
@@ -228,6 +274,53 @@ function goalStatusLabel(status) {
   if (status === 'achieved') return 'Достигнута'
   if (status === 'in_progress') return 'В работе'
   return 'К выполнению'
+}
+
+function openEditTask(task) {
+  editTaskState.id = task.id
+  editTaskState.goalId = task.goalId
+  editTaskState.title = task.title || ''
+  editTaskState.description = task.description || ''
+  editTaskState.priority = task.priority || 'medium'
+  editTaskState.isCompleted = Boolean(task.isCompleted)
+  editTaskState.assigneeId = task.assigneeId ?? null
+  editTaskOpen.value = true
+}
+
+async function onUpdateTask() {
+  if (!editTaskState.id || !editTaskState.goalId) return
+  if (String(editTaskState.title || '').trim().length < 3) {
+    toast.add({
+      title: 'Ошибка валидации',
+      description: 'Название задачи должно быть не короче 3 символов.',
+      color: 'warning'
+    })
+    return
+  }
+
+  updatingTask.value = true
+
+  await withErrorToast(async () => {
+    await tracker.updateTask(
+      editTaskState.id,
+      {
+        goalId: editTaskState.goalId,
+        title: editTaskState.title.trim(),
+        description: editTaskState.description.trim(),
+        priority: editTaskState.priority,
+        isCompleted: editTaskState.isCompleted,
+        assigneeId: editTaskState.assigneeId
+      },
+      auth.authHeader()
+    )
+
+    editTaskOpen.value = false
+    await loadHomeData()
+
+    toast.add({ title: 'Задача обновлена', color: 'success' })
+  })
+
+  updatingTask.value = false
 }
 
 async function withErrorToast(action) {
