@@ -34,20 +34,21 @@ func (s *Store) CreateGoal(ownerID int, payload types.CreateGoalPayload) (*types
 }
 
 func (s *Store) UpdateGoal(goalID, ownerID int, payload types.CreateGoalPayload) (*types.Goal, error) {
+	_ = ownerID
+
 	row := s.db.QueryRow(
 		`UPDATE goals
 		 SET title = $1,
 		     description = $2,
 		     priority = $3,
 		     status = $4
-		 WHERE id = $5 AND owner_id = $6
+		 WHERE id = $5
 		 RETURNING id, title, description, priority, status, owner_id, created_at`,
 		payload.Title,
 		payload.Description,
 		normalizePriority(payload.Priority),
 		normalizeGoalStatus(payload.Status),
 		goalID,
-		ownerID,
 	)
 
 	goal, err := scanRowIntoGoal(row)
@@ -479,6 +480,8 @@ func (s *Store) CreateTask(goalID, creatorID int, payload types.CreateTaskPayloa
 }
 
 func (s *Store) UpdateTask(taskID, requesterID int, payload types.UpdateTaskPayload) (*types.Task, error) {
+	_ = requesterID
+
 	row := s.db.QueryRow(
 		`UPDATE tasks t
 		 SET goal_id = $1,
@@ -487,12 +490,9 @@ func (s *Store) UpdateTask(taskID, requesterID int, payload types.UpdateTaskPayl
 		     priority = $4,
 		     is_completed = $5,
 		     assignee_id = $6
-		 FROM goals current_goal, goals new_goal
+		 FROM goals new_goal
 		 WHERE t.id = $7
-		   AND t.goal_id = current_goal.id
-		   AND current_goal.owner_id = $8
 		   AND new_goal.id = $1
-		   AND new_goal.owner_id = $8
 		 RETURNING t.id, t.goal_id, t.title, t.description, t.priority, t.is_completed, t.assignee_id, t.created_by, t.created_at`,
 		payload.GoalID,
 		payload.Title,
@@ -501,7 +501,6 @@ func (s *Store) UpdateTask(taskID, requesterID int, payload types.UpdateTaskPayl
 		payload.IsCompleted,
 		payload.AssigneeID,
 		taskID,
-		requesterID,
 	)
 
 	task, err := scanRowIntoTask(row)

@@ -75,7 +75,6 @@
                   {{ priorityLabel(goal.priority) }}
                 </UBadge>
                 <UButton
-                  v-if="isGoalOwner(goal)"
                   icon="i-lucide-pencil"
                   color="neutral"
                   variant="soft"
@@ -100,7 +99,6 @@
           <div class="flex flex-wrap items-center justify-between gap-3 text-sm text-muted">
             <span>Владелец: {{ goal.ownerName || auth.displayName }}</span>
             <span>Задачи: {{ (goal.tasks || []).length }}</span>
-            <span v-if="!isGoalOwner(goal)">Только владелец может редактировать цель</span>
           </div>
 
           <template #footer>
@@ -345,8 +343,6 @@ async function onCreateGoal(event: FormSubmitEvent<GoalSchema>) {
 }
 
 function openEditGoal(goal: GoalEntity) {
-  if (!isGoalOwner(goal)) return
-
   editGoalState.id = goal.id
   editGoalState.title = goal.title
   editGoalState.description = goal.description

@@ -81,7 +81,6 @@
                   {{ priorityLabel(task.priority) }}
                 </UBadge>
                 <UButton
-                  v-if="canManageGoal"
                   icon="i-lucide-pencil"
                   color="neutral"
                   variant="soft"
@@ -377,8 +376,6 @@ async function onCreateTask(event: FormSubmitEvent<CreateTaskSchema>) {
 }
 
 function openEditTask(task: any) {
-  if (!canManageGoal.value) return
-
   editTaskState.id = task.id
   editTaskState.title = task.title
   editTaskState.description = task.description
@@ -389,7 +386,6 @@ function openEditTask(task: any) {
 }
 
 async function onUpdateTask(event: FormSubmitEvent<UpdateTaskSchema>) {
-  if (!canManageGoal.value) return
   if (!editTaskState.id) return
 
   updatingTask.value = true
