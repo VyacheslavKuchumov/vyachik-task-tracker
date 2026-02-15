@@ -24,25 +24,28 @@
             <p class="text-sm text-muted">Создавайте цели, задавайте приоритет и статус, переходите к задачам.</p>
           </div>
 
-          <div class="flex items-center gap-3">
+          <div class="flex w-full flex-wrap items-center gap-3 sm:w-auto sm:flex-nowrap">
             <label class="flex items-center gap-2 text-sm text-muted">
               <input v-model="hideAchievedGoals" type="checkbox" class="h-4 w-4 rounded border-default" />
               Скрыть достигнутые
             </label>
 
-            <UButton
-              icon="i-lucide-refresh-cw"
-              color="neutral"
-              variant="soft"
-              :loading="tracker.loadingGoals"
-              @click="loadGoals"
-            >
-              Обновить
-            </UButton>
+            <div class="ml-auto flex items-center gap-2">
+              <UButton
+                icon="i-lucide-refresh-cw"
+                color="neutral"
+                variant="soft"
+                aria-label="Обновить"
+                :loading="tracker.loadingGoals"
+                @click="loadGoals"
+              >
+                <span class="hidden sm:inline">Обновить</span>
+              </UButton>
 
-            <UButton icon="i-lucide-plus" color="primary" @click="createGoalOpen = true">
-              Новая цель
-            </UButton>
+              <UButton icon="i-lucide-plus" color="primary" aria-label="Новая цель" @click="createGoalOpen = true">
+                <span class="hidden sm:inline">Новая цель</span>
+              </UButton>
+            </div>
           </div>
         </div>
       </template>
@@ -61,37 +64,44 @@
       <div v-else class="space-y-4">
         <UCard v-for="goal in visibleGoals" :key="goal.id" variant="soft">
           <template #header>
-            <div class="flex flex-wrap items-start justify-between gap-3">
-              <div class="space-y-1">
-                <h3 class="font-semibold">{{ goal.title }}</h3>
-                <p class="text-sm text-muted">{{ goal.description || 'Без описания' }}</p>
+            <div class="space-y-3">
+              <div class="flex items-start justify-between gap-3">
+                <div class="min-w-0 flex-1 space-y-1">
+                  <h3 class="break-words font-semibold">{{ goal.title }}</h3>
+                  <p class="break-words text-sm text-muted">{{ goal.description || 'Без описания' }}</p>
+                </div>
+
+                <div class="flex shrink-0 items-center gap-2">
+                  <UButton
+                    icon="i-lucide-pencil"
+                    color="neutral"
+                    variant="soft"
+                    aria-label="Редактировать"
+                    @click="openEditGoal(goal)"
+                  >
+                    <span class="hidden sm:inline">Редактировать</span>
+                  </UButton>
+                  <UButton
+                    v-if="isGoalOwner(goal)"
+                    icon="i-lucide-trash-2"
+                    color="error"
+                    variant="soft"
+                    aria-label="Удалить"
+                    :loading="deletingGoalId === goal.id"
+                    @click="requestDeleteGoal(goal)"
+                  >
+                    <span class="hidden sm:inline">Удалить</span>
+                  </UButton>
+                </div>
               </div>
 
-              <div class="flex items-center gap-2">
+              <div class="flex flex-wrap items-center gap-2">
                 <UBadge :color="goalStatusColor(goal.status)" variant="soft">
                   {{ goalStatusLabel(goal.status) }}
                 </UBadge>
                 <UBadge :color="priorityColor(goal.priority)" variant="soft">
                   {{ priorityLabel(goal.priority) }}
                 </UBadge>
-                <UButton
-                  icon="i-lucide-pencil"
-                  color="neutral"
-                  variant="soft"
-                  @click="openEditGoal(goal)"
-                >
-                  Редактировать
-                </UButton>
-                <UButton
-                  v-if="isGoalOwner(goal)"
-                  icon="i-lucide-trash-2"
-                  color="error"
-                  variant="soft"
-                  :loading="deletingGoalId === goal.id"
-                  @click="onDeleteGoal(goal.id)"
-                >
-                  Удалить
-                </UButton>
               </div>
             </div>
           </template>
@@ -194,6 +204,32 @@
         </UForm>
       </template>
     </UModal>
+
+    <UModal v-model:open="deleteGoalConfirmOpen" title="Удалить цель">
+      <template #body>
+        <div class="space-y-4">
+          <p class="text-sm text-muted">
+            Удалить цель
+            <span class="font-semibold text-default">«{{ goalToDelete?.title || 'Без названия' }}»</span>
+            и все вложенные задачи?
+          </p>
+
+          <div class="flex justify-end gap-2">
+            <UButton type="button" color="neutral" variant="soft" @click="closeDeleteGoalModal">
+              Отмена
+            </UButton>
+            <UButton
+              type="button"
+              color="error"
+              :loading="deletingGoalId === goalToDelete?.id"
+              @click="confirmDeleteGoal"
+            >
+              Удалить
+            </UButton>
+          </div>
+        </div>
+      </template>
+    </UModal>
   </section>
 </template>
 
@@ -223,6 +259,8 @@ const hideAchievedGoals = ref(false)
 const creatingGoal = ref(false)
 const updatingGoal = ref(false)
 const deletingGoalId = ref<number | null>(null)
+const deleteGoalConfirmOpen = ref(false)
+const goalToDelete = ref<GoalEntity | null>(null)
 
 const goalSchema = v.object({
   title: v.pipe(v.string(), v.minLength(3, 'Название цели должно быть не короче 3 символов')),
@@ -280,11 +318,6 @@ function goalStatusLabel(status: string) {
   if (status === 'achieved') return 'Достигнута'
   if (status === 'in_progress') return 'В работе'
   return 'К выполнению'
-}
-
-function confirmAction(message: string) {
-  if (typeof window === 'undefined') return false
-  return window.confirm(message)
 }
 
 function isGoalOwner(goal: GoalEntity) {
@@ -376,20 +409,38 @@ async function onUpdateGoal(event: FormSubmitEvent<GoalSchema>) {
   updatingGoal.value = false
 }
 
-async function onDeleteGoal(goalId: number) {
-  const goal = tracker.goals.find((item: GoalEntity) => item.id === goalId)
-  if (!goal || !isGoalOwner(goal)) return
+function requestDeleteGoal(goal: GoalEntity) {
+  if (!isGoalOwner(goal)) return
 
-  if (!confirmAction('Удалить эту цель и все вложенные задачи?')) return
+  goalToDelete.value = goal
+  deleteGoalConfirmOpen.value = true
+}
+
+function closeDeleteGoalModal() {
+  if (deletingGoalId.value !== null) return
+
+  deleteGoalConfirmOpen.value = false
+  goalToDelete.value = null
+}
+
+async function confirmDeleteGoal() {
+  const goalId = goalToDelete.value?.id
+  if (!goalId) return
 
   deletingGoalId.value = goalId
+  let deleted = false
 
   await withErrorToast(async () => {
     await tracker.deleteGoal(goalId, auth.authHeader())
     toast.add({ title: 'Цель удалена', color: 'success' })
+    deleted = true
   })
 
   deletingGoalId.value = null
+
+  if (deleted) {
+    closeDeleteGoalModal()
+  }
 }
 
 onMounted(async () => {
