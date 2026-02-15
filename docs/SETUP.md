@@ -108,6 +108,20 @@ npm run dev
 
 Open `http://localhost:3000`.
 
+## Option 3: Separate Docker Containers (No Compose Changes)
+
+Use a helper script that starts `postgres`, `server`, and `web` as separate containers on a dedicated Docker network:
+
+```bash
+python3 scripts/dev_docker_stack.py up
+```
+
+Stop and remove them:
+
+```bash
+python3 scripts/dev_docker_stack.py down --remove-network
+```
+
 ## Common Problems
 
 - `connect: connection refused` from backend: Postgres is not up on `5433`.
